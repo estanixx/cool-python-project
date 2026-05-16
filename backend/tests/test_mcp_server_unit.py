@@ -26,7 +26,7 @@ class TestMCPServerToolResult(unittest.TestCase):
         self.assertIsInstance(result, CallToolResult)
         self.assertTrue(result.isError)
         self.assertEqual(result.structuredContent, {"error": "missing"})
-        self.assertEqual(result._meta.get("status_code"), 404)
+        self.assertEqual(result.meta.get("status_code"), 404)
 
     def test_tool_result_returns_payload(self):
         def ok_handler(_event, _context):
@@ -37,7 +37,7 @@ class TestMCPServerToolResult(unittest.TestCase):
         self.assertIsInstance(result, CallToolResult)
         self.assertFalse(result.isError)
         self.assertEqual(result.structuredContent, {"word": "Apple"})
-        self.assertEqual(result._meta.get("status_code"), 200)
+        self.assertEqual(result.meta.get("status_code"), 200)
 
 
 @unittest.skipUnless(HAVE_MCP, "mcp package not installed")
