@@ -10,7 +10,9 @@ from typing import Any, Callable, Dict, Optional, List
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent
 
-from backend.handlers import dictionary_handler, product_handler, shopping_cart_handler
+from backend.handlers.dictionary_handler import handler as dict_handler
+from backend.handlers.product_handler import handler as prod_handler
+from backend.handlers.shopping_cart_handler import handler as cart_handler
 
 
 def _build_event(operation: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -54,28 +56,28 @@ mcp = FastMCP("serverless-crud", stateless_http=True, json_response=True)
 def dictionary_create(word: str, definition: str) -> CallToolResult:
     """Create a dictionary entry."""
     event = _build_event("create", {"Word": word, "definition": definition})
-    return _tool_result(dictionary_handler.handler, event)
+    return _tool_result(dict_handler, event)
 
 
 @mcp.tool()
 def dictionary_read(word: str) -> CallToolResult:
     """Read a dictionary entry by word."""
     event = _build_event("read", {"Word": word})
-    return _tool_result(dictionary_handler.handler, event)
+    return _tool_result(dict_handler, event)
 
 
 @mcp.tool()
 def dictionary_update(word: str, definition: str) -> CallToolResult:
     """Update a dictionary entry."""
     event = _build_event("update", {"Word": word, "definition": definition})
-    return _tool_result(dictionary_handler.handler, event)
+    return _tool_result(dict_handler, event)
 
 
 @mcp.tool()
 def dictionary_delete(word: str) -> CallToolResult:
     """Delete a dictionary entry by word."""
     event = _build_event("delete", {"Word": word})
-    return _tool_result(dictionary_handler.handler, event)
+    return _tool_result(dict_handler, event)
 
 
 @mcp.tool()
@@ -85,14 +87,14 @@ def product_create(name: str, price: float, product_id: Optional[str] = None) ->
     if product_id:
         payload["uuid"] = product_id
     event = _build_event("create", payload)
-    return _tool_result(product_handler.handler, event)
+    return _tool_result(prod_handler, event)
 
 
 @mcp.tool()
 def product_read(product_id: str) -> CallToolResult:
     """Read a product by id."""
     event = _build_event("read", {"uuid": product_id})
-    return _tool_result(product_handler.handler, event)
+    return _tool_result(prod_handler, event)
 
 
 @mcp.tool()
@@ -104,42 +106,42 @@ def product_update(product_id: str, name: Optional[str] = None, price: Optional[
     if price is not None:
         payload["price"] = price
     event = _build_event("update", payload)
-    return _tool_result(product_handler.handler, event)
+    return _tool_result(prod_handler, event)
 
 
 @mcp.tool()
 def product_delete(product_id: str) -> CallToolResult:
     """Delete a product by id."""
     event = _build_event("delete", {"uuid": product_id})
-    return _tool_result(product_handler.handler, event)
+    return _tool_result(prod_handler, event)
 
 
 @mcp.tool()
 def shopping_cart_create(cart_id: str, product_ids: List[str]) -> CallToolResult:
     """Create a shopping cart with product IDs."""
     event = _build_event("create", {"UUID": cart_id, "productIds": product_ids})
-    return _tool_result(shopping_cart_handler.handler, event)
+    return _tool_result(cart_handler, event)
 
 
 @mcp.tool()
 def shopping_cart_read(cart_id: str) -> CallToolResult:
     """Read a shopping cart by id."""
     event = _build_event("read", {"UUID": cart_id})
-    return _tool_result(shopping_cart_handler.handler, event)
+    return _tool_result(cart_handler, event)
 
 
 @mcp.tool()
 def shopping_cart_update(cart_id: str, product_ids: List[str]) -> CallToolResult:
     """Update a shopping cart's product IDs."""
     event = _build_event("update", {"UUID": cart_id, "productIds": product_ids})
-    return _tool_result(shopping_cart_handler.handler, event)
+    return _tool_result(cart_handler, event)
 
 
 @mcp.tool()
 def shopping_cart_delete(cart_id: str) -> CallToolResult:
     """Delete a shopping cart by id."""
     event = _build_event("delete", {"UUID": cart_id})
-    return _tool_result(shopping_cart_handler.handler, event)
+    return _tool_result(cart_handler, event)
 
 
 def _configure_default_env() -> None:

@@ -3,9 +3,9 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from backend.dal.errors import NotFoundError, ValidationError
-from backend.handlers import dictionary_handler as dictionary_module
-from backend.handlers import product_handler as product_module
-from backend.handlers import shopping_cart_handler as shopping_cart_module
+import backend.handlers.dictionary_handler as dictionary_module
+import backend.handlers.product_handler as product_module
+import backend.handlers.shopping_cart_handler as shopping_cart_module
 
 
 class TestDictionaryHandler(unittest.TestCase):

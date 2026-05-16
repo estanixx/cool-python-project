@@ -38,12 +38,15 @@ class ProductDAO:
         normalized_id = self._normalize_uuid(product_id)
         updates = []
         values = {}
+        attr_names = {"#pk": "uuid"}
         if name is not None:
-            updates.append("name = :name")
+            updates.append("#nm = :name")
             values[":name"] = name
+            attr_names["#nm"] = "name"
         if price is not None:
-            updates.append("price = :price")
+            updates.append("#pr = :price")
             values[":price"] = price
+            attr_names["#pr"] = "price"
         if not updates:
             raise ValidationError("no updates provided")
 
@@ -52,7 +55,7 @@ class ProductDAO:
                 Key={"uuid": normalized_id},
                 UpdateExpression="SET " + ", ".join(updates),
                 ExpressionAttributeValues=values,
-                ExpressionAttributeNames={"#pk": "uuid"},
+                ExpressionAttributeNames=attr_names,
                 ConditionExpression="attribute_exists(#pk)",
                 ReturnValues="ALL_NEW",
             )

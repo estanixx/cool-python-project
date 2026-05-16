@@ -2,43 +2,40 @@
 # These are created automatically during `terraform plan` / `terraform apply`.
 # No manual zip creation needed.
 #
-# Each Lambda packages: its handler + shared DAL + shared utils.
+# Each Lambda includes ALL DAOs because backend/handlers/__init__.py imports
+# all three handlers, and each handler imports its own DAO.
 
 locals {
   backend_root = "${path.module}/../../backend"
+
+  # Shared sources included in every Lambda zip
+  lambda_shared = [
+    { content = file("${local.backend_root}/__init__.py"), filename = "backend/__init__.py" },
+    { content = file("${local.backend_root}/dal/__init__.py"), filename = "backend/dal/__init__.py" },
+    { content = file("${local.backend_root}/dal/db_client.py"), filename = "backend/dal/db_client.py" },
+    { content = file("${local.backend_root}/dal/errors.py"), filename = "backend/dal/errors.py" },
+    { content = file("${local.backend_root}/dal/dictionary_dao.py"), filename = "backend/dal/dictionary_dao.py" },
+    { content = file("${local.backend_root}/dal/product_dao.py"), filename = "backend/dal/product_dao.py" },
+    { content = file("${local.backend_root}/dal/shopping_cart_dao.py"), filename = "backend/dal/shopping_cart_dao.py" },
+    { content = file("${local.backend_root}/handlers/__init__.py"), filename = "backend/handlers/__init__.py" },
+  ]
 }
 
 data "archive_file" "dictionary" {
   type        = "zip"
   output_path = "${path.module}/.terraform/artifacts/dictionary.zip"
 
+  dynamic "source" {
+    for_each = local.lambda_shared
+    content {
+      content  = source.value.content
+      filename = source.value.filename
+    }
+  }
+
   source {
     content  = file("${local.backend_root}/handlers/dictionary_handler.py")
     filename = "backend/handlers/dictionary_handler.py"
-  }
-  source {
-    content  = file("${local.backend_root}/handlers/__init__.py")
-    filename = "backend/handlers/__init__.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/__init__.py")
-    filename = "backend/dal/__init__.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/db_client.py")
-    filename = "backend/dal/db_client.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/dictionary_dao.py")
-    filename = "backend/dal/dictionary_dao.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/errors.py")
-    filename = "backend/dal/errors.py"
-  }
-  source {
-    content  = file("${local.backend_root}/__init__.py")
-    filename = "backend/__init__.py"
   }
 }
 
@@ -46,33 +43,17 @@ data "archive_file" "product" {
   type        = "zip"
   output_path = "${path.module}/.terraform/artifacts/product.zip"
 
+  dynamic "source" {
+    for_each = local.lambda_shared
+    content {
+      content  = source.value.content
+      filename = source.value.filename
+    }
+  }
+
   source {
     content  = file("${local.backend_root}/handlers/product_handler.py")
     filename = "backend/handlers/product_handler.py"
-  }
-  source {
-    content  = file("${local.backend_root}/handlers/__init__.py")
-    filename = "backend/handlers/__init__.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/__init__.py")
-    filename = "backend/dal/__init__.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/db_client.py")
-    filename = "backend/dal/db_client.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/product_dao.py")
-    filename = "backend/dal/product_dao.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/errors.py")
-    filename = "backend/dal/errors.py"
-  }
-  source {
-    content  = file("${local.backend_root}/__init__.py")
-    filename = "backend/__init__.py"
   }
 }
 
@@ -80,33 +61,17 @@ data "archive_file" "shopping_cart" {
   type        = "zip"
   output_path = "${path.module}/.terraform/artifacts/shopping_cart.zip"
 
+  dynamic "source" {
+    for_each = local.lambda_shared
+    content {
+      content  = source.value.content
+      filename = source.value.filename
+    }
+  }
+
   source {
     content  = file("${local.backend_root}/handlers/shopping_cart_handler.py")
     filename = "backend/handlers/shopping_cart_handler.py"
-  }
-  source {
-    content  = file("${local.backend_root}/handlers/__init__.py")
-    filename = "backend/handlers/__init__.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/__init__.py")
-    filename = "backend/dal/__init__.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/db_client.py")
-    filename = "backend/dal/db_client.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/shopping_cart_dao.py")
-    filename = "backend/dal/shopping_cart_dao.py"
-  }
-  source {
-    content  = file("${local.backend_root}/dal/errors.py")
-    filename = "backend/dal/errors.py"
-  }
-  source {
-    content  = file("${local.backend_root}/__init__.py")
-    filename = "backend/__init__.py"
   }
 }
 

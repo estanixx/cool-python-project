@@ -20,6 +20,12 @@ variable "aws_endpoint_url" {
   default     = ""
 }
 
+variable "lambda_env_endpoint_url" {
+  description = "DynamoDB endpoint URL for Lambda runtime (may differ from provider endpoint)."
+  type        = string
+  default     = ""
+}
+
 variable "table_names" {
   description = "DynamoDB table names for Dictionary, Product, ShoppingCart."
   type = object({
@@ -47,6 +53,12 @@ variable "lambda_runtime" {
   description = "Lambda runtime for CRUD handlers."
   type        = string
   default     = "python3.11"
+}
+
+variable "lambda_timeout" {
+  description = "Lambda timeout in seconds."
+  type        = number
+  default     = 30
 }
 
 variable "lambda_artifacts" {

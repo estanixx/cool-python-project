@@ -3,8 +3,6 @@ import json
 import unittest
 from unittest.mock import patch
 
-from backend.handlers import dictionary_handler
-
 HAVE_MCP = importlib.util.find_spec("mcp") is not None
 
 if HAVE_MCP:
@@ -43,7 +41,7 @@ class TestMCPServerToolResult(unittest.TestCase):
 @unittest.skipUnless(HAVE_MCP, "mcp package not installed")
 class TestMCPServerTools(unittest.TestCase):
     def test_dictionary_read_tool_invokes_handler(self):
-        with patch.object(dictionary_handler, "handler") as handler:
+        with patch.object(mcp_server, "dict_handler") as handler:
             handler.return_value = {"statusCode": 200, "body": json.dumps({"word": "Apple"})}
 
             result = mcp_server.dictionary_read("apple")

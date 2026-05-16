@@ -4,6 +4,9 @@ services:
     ports:
       - "4566:4566"
     environment:
-      # LocalStack vars auto-translated ✓
       LOCALSTACK_HOST: floci
       PERSISTENCE: "1"
+      DOCKER_HOST: unix:///var/run/docker.sock
+    volumes:
+      # Mount Docker socket so Floci can spawn Lambda containers
+      - /var/run/docker.sock:/var/run/docker.sock

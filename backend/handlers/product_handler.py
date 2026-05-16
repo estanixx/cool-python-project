@@ -1,4 +1,6 @@
 import json
+from decimal import Decimal
+
 from backend.dal import ProductDAO, get_dynamodb_resource
 from backend.dal.errors import NotFoundError, ValidationError, DynamoError
 
@@ -39,8 +41,15 @@ def handler(event, context):  # pylint: disable=unused-argument
         return _error(500, str(exc))
 
 
+class _DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return float(o)
+        return super().default(o)
+
+
 def _response(status_code: int, body: dict) -> dict:
-    return {"statusCode": status_code, "body": json.dumps(body)}
+    return {"statusCode": status_code, "body": json.dumps(body, cls=_DecimalEncoder)}
 
 
 def _error(status_code: int, message: str) -> dict:

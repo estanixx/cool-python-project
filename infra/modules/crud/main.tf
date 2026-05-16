@@ -103,13 +103,14 @@ resource "aws_lambda_function" "dictionary" {
   role             = aws_iam_role.lambda_role.arn
   handler          = var.lambda_handler_names.dictionary
   runtime          = var.lambda_runtime
+  timeout          = var.lambda_timeout
   filename         = var.lambda_artifacts.dictionary
   source_code_hash = filebase64sha256(var.lambda_artifacts.dictionary)
 
   environment {
     variables = {
       STAGE            = var.stage
-      AWS_ENDPOINT_URL = var.aws_endpoint_url
+      AWS_ENDPOINT_URL = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
     }
   }
 
@@ -121,13 +122,14 @@ resource "aws_lambda_function" "product" {
   role             = aws_iam_role.lambda_role.arn
   handler          = var.lambda_handler_names.product
   runtime          = var.lambda_runtime
+  timeout          = var.lambda_timeout
   filename         = var.lambda_artifacts.product
   source_code_hash = filebase64sha256(var.lambda_artifacts.product)
 
   environment {
     variables = {
       STAGE            = var.stage
-      AWS_ENDPOINT_URL = var.aws_endpoint_url
+      AWS_ENDPOINT_URL = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
     }
   }
 
@@ -139,13 +141,14 @@ resource "aws_lambda_function" "shopping_cart" {
   role             = aws_iam_role.lambda_role.arn
   handler          = var.lambda_handler_names.shopping_cart
   runtime          = var.lambda_runtime
+  timeout          = var.lambda_timeout
   filename         = var.lambda_artifacts.shopping_cart
   source_code_hash = filebase64sha256(var.lambda_artifacts.shopping_cart)
 
   environment {
     variables = {
       STAGE            = var.stage
-      AWS_ENDPOINT_URL = var.aws_endpoint_url
+      AWS_ENDPOINT_URL = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
     }
   }
 
@@ -170,8 +173,6 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.crud_api.id
   name        = "$default"
   auto_deploy = true
-
-  tags = local.tags
 }
 
 resource "aws_apigatewayv2_integration" "dictionary" {
