@@ -21,6 +21,15 @@ output "lambda_role_arn" {
   value       = aws_iam_role.lambda_role.arn
 }
 
+output "lambda_arns" {
+  description = "Lambda function ARNs."
+  value = {
+    dictionary    = aws_lambda_function.dictionary.arn
+    product       = aws_lambda_function.product.arn
+    shopping_cart = aws_lambda_function.shopping_cart.arn
+  }
+}
+
 output "aws_endpoint_url" {
   description = "Endpoint override in use (if any)."
   value       = var.aws_endpoint_url

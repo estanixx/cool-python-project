@@ -42,3 +42,63 @@ variable "lambda_role_name" {
   description = "IAM role name for CRUD Lambdas."
   type        = string
 }
+
+variable "lambda_runtime" {
+  description = "Lambda runtime for CRUD handlers."
+  type        = string
+  default     = "python3.11"
+}
+
+variable "lambda_artifacts" {
+  description = "Zip artifacts for Lambda functions."
+  type = object({
+    dictionary    = string
+    product       = string
+    shopping_cart = string
+  })
+
+  validation {
+    condition = (
+      length(trim(var.lambda_artifacts.dictionary)) > 0 &&
+      length(trim(var.lambda_artifacts.product)) > 0 &&
+      length(trim(var.lambda_artifacts.shopping_cart)) > 0
+    )
+    error_message = "All lambda_artifacts fields must be provided and non-empty."
+  }
+}
+
+variable "lambda_function_names" {
+  description = "Lambda function names for CRUD handlers."
+  type = object({
+    dictionary    = string
+    product       = string
+    shopping_cart = string
+  })
+
+  validation {
+    condition = (
+      length(trim(var.lambda_function_names.dictionary)) > 0 &&
+      length(trim(var.lambda_function_names.product)) > 0 &&
+      length(trim(var.lambda_function_names.shopping_cart)) > 0
+    )
+    error_message = "All lambda_function_names fields must be provided and non-empty."
+  }
+}
+
+variable "lambda_handler_names" {
+  description = "Handler entrypoints for CRUD Lambdas."
+  type = object({
+    dictionary    = string
+    product       = string
+    shopping_cart = string
+  })
+
+  validation {
+    condition = (
+      length(trim(var.lambda_handler_names.dictionary)) > 0 &&
+      length(trim(var.lambda_handler_names.product)) > 0 &&
+      length(trim(var.lambda_handler_names.shopping_cart)) > 0
+    )
+    error_message = "All lambda_handler_names fields must be provided and non-empty."
+  }
+}

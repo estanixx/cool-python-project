@@ -1,16 +1,16 @@
 provider "aws" {
   access_key                  = "test"
   secret_key                  = "test"
-  region                      = "us-east-1"
+  region                      = var.aws_region
   skip_credentials_validation = true
   skip_metadata_api_check     = true
   skip_requesting_account_id  = true
 
-  endpoints {
-    s3       = "http://localhost:4566"
-    sqs      = "http://localhost:4566"
-    dynamodb = "http://localhost:4566"
-    lambda   = "http://localhost:4566"
-    # Add other services as needed
+  dynamic "endpoints" {
+    for_each = var.aws_endpoint_url != "" ? [var.aws_endpoint_url] : []
+    content {
+      dynamodb = endpoints.value
+      lambda   = endpoints.value
+    }
   }
 }
