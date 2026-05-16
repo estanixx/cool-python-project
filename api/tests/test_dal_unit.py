@@ -1,8 +1,8 @@
 import unittest
-from backend.dal.dictionary_dao import DictionaryDAO
-from backend.dal.product_dao import ProductDAO
-from backend.dal.shopping_cart_dao import ShoppingCartDAO
-from backend.dal.errors import ValidationError
+from api.dal.dictionary_dao import DictionaryDAO
+from api.dal.product_dao import ProductDAO
+from api.dal.shopping_cart_dao import ShoppingCartDAO
+from api.dal.errors import ValidationError
 
 
 class TestDALNormalization(unittest.TestCase):

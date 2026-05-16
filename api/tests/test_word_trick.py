@@ -1,5 +1,5 @@
 import unittest
-from backend.utils import word_trick
+from api.utils import word_trick
 
 class TestWordTrick(unittest.TestCase):
     """Test cases for the word_trick function."""

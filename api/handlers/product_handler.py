@@ -1,14 +1,13 @@
 import json
 from decimal import Decimal
 
-from backend.dal import ProductDAO, get_dynamodb_resource
-from backend.dal.errors import NotFoundError, ValidationError, DynamoError
+from api.dal import ProductDAO, get_dynamodb_resource
+from api.dal.errors import NotFoundError, ValidationError, DynamoError
+from api.handlers.utils import parse_event
 
 
 def handler(event, context):  # pylint: disable=unused-argument
-    operation = (event or {}).get("operation")
-    payload = (event or {}).get("payload") or {}
-
+    operation, payload = parse_event(event or {})
     dao = ProductDAO(get_dynamodb_resource())
 
     try:

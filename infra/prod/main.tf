@@ -2,7 +2,7 @@
 # These are created automatically during `terraform plan` / `terraform apply`.
 # No manual zip creation needed.
 #
-# Each Lambda includes ALL DAOs because backend/handlers/__init__.py imports
+# Each Lambda includes ALL DAOs because api/handlers/__init__.py imports
 # all three handlers, and each handler imports its own DAO.
 
 locals {
@@ -10,14 +10,14 @@ locals {
 
   # Shared sources included in every Lambda zip
   lambda_shared = [
-    { content = file("${local.backend_root}/__init__.py"), filename = "backend/__init__.py" },
-    { content = file("${local.backend_root}/dal/__init__.py"), filename = "backend/dal/__init__.py" },
-    { content = file("${local.backend_root}/dal/db_client.py"), filename = "backend/dal/db_client.py" },
-    { content = file("${local.backend_root}/dal/errors.py"), filename = "backend/dal/errors.py" },
-    { content = file("${local.backend_root}/dal/dictionary_dao.py"), filename = "backend/dal/dictionary_dao.py" },
-    { content = file("${local.backend_root}/dal/product_dao.py"), filename = "backend/dal/product_dao.py" },
-    { content = file("${local.backend_root}/dal/shopping_cart_dao.py"), filename = "backend/dal/shopping_cart_dao.py" },
-    { content = file("${local.backend_root}/handlers/__init__.py"), filename = "backend/handlers/__init__.py" },
+    { content = file("${local.backend_root}/__init__.py"), filename = "api/__init__.py" },
+    { content = file("${local.backend_root}/dal/__init__.py"), filename = "api/dal/__init__.py" },
+    { content = file("${local.backend_root}/dal/db_client.py"), filename = "api/dal/db_client.py" },
+    { content = file("${local.backend_root}/dal/errors.py"), filename = "api/dal/errors.py" },
+    { content = file("${local.backend_root}/dal/dictionary_dao.py"), filename = "api/dal/dictionary_dao.py" },
+    { content = file("${local.backend_root}/dal/product_dao.py"), filename = "api/dal/product_dao.py" },
+    { content = file("${local.backend_root}/dal/shopping_cart_dao.py"), filename = "api/dal/shopping_cart_dao.py" },
+    { content = file("${local.backend_root}/handlers/__init__.py"), filename = "api/handlers/__init__.py" },
   ]
 }
 
@@ -35,7 +35,7 @@ data "archive_file" "dictionary" {
 
   source {
     content  = file("${local.backend_root}/handlers/dictionary_handler.py")
-    filename = "backend/handlers/dictionary_handler.py"
+    filename = "api/handlers/dictionary_handler.py"
   }
 }
 
@@ -53,7 +53,7 @@ data "archive_file" "product" {
 
   source {
     content  = file("${local.backend_root}/handlers/product_handler.py")
-    filename = "backend/handlers/product_handler.py"
+    filename = "api/handlers/product_handler.py"
   }
 }
 
@@ -71,7 +71,7 @@ data "archive_file" "shopping_cart" {
 
   source {
     content  = file("${local.backend_root}/handlers/shopping_cart_handler.py")
-    filename = "backend/handlers/shopping_cart_handler.py"
+    filename = "api/handlers/shopping_cart_handler.py"
   }
 }
 
@@ -97,9 +97,9 @@ module "crud" {
   }
 
   lambda_handler_names = {
-    dictionary    = "backend.handlers.dictionary_handler.handler"
-    product       = "backend.handlers.product_handler.handler"
-    shopping_cart = "backend.handlers.shopping_cart_handler.handler"
+    dictionary    = "api.handlers.dictionary_handler.handler"
+    product       = "api.handlers.product_handler.handler"
+    shopping_cart = "api.handlers.shopping_cart_handler.handler"
   }
 
   lambda_artifacts = {

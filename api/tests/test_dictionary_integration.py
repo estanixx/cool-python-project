@@ -1,7 +1,7 @@
 import unittest
-from backend.dal.errors import NotFoundError
-from backend.dal.dictionary_dao import DictionaryDAO
-from backend.tests import conftest
+from api.dal.errors import NotFoundError
+from api.dal.dictionary_dao import DictionaryDAO
+from api.tests import conftest
 
 
 class TestDictionaryIntegration(unittest.TestCase):

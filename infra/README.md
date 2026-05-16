@@ -77,7 +77,7 @@ terraform -chdir=infra/test init     # only first time
 terraform -chdir=infra/test apply
 
 # 3. Run tests (use tables created by Terraform)
-python3 -m unittest discover -s backend/tests -v
+python3 -m unittest discover -s api/tests -v
 
 # 4. Destroy infrastructure when done
 terraform -chdir=infra/test destroy
@@ -111,7 +111,7 @@ data "archive_file" "dictionary" {
 
   source {
     content  = file("${local.backend_root}/handlers/dictionary_handler.py")
-    filename = "backend/handlers/dictionary_handler.py"
+    filename = "api/handlers/dictionary_handler.py"
   }
   # ... more files (DAL, __init__.py, etc.)
 }

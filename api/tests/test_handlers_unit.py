@@ -2,10 +2,10 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from backend.dal.errors import NotFoundError, ValidationError
-import backend.handlers.dictionary_handler as dictionary_module
-import backend.handlers.product_handler as product_module
-import backend.handlers.shopping_cart_handler as shopping_cart_module
+from api.dal.errors import NotFoundError, ValidationError
+import api.handlers.dictionary_handler as dictionary_module
+import api.handlers.product_handler as product_module
+import api.handlers.shopping_cart_handler as shopping_cart_module
 
 
 class TestDictionaryHandler(unittest.TestCase):

@@ -1,9 +1,9 @@
 import unittest
 from decimal import Decimal
 
-from backend.dal.errors import NotFoundError
-from backend.dal.product_dao import ProductDAO
-from backend.tests import conftest
+from api.dal.errors import NotFoundError
+from api.dal.product_dao import ProductDAO
+from api.tests import conftest
 
 
 class TestProductIntegration(unittest.TestCase):

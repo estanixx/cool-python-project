@@ -1,8 +1,8 @@
 import unittest
 
-from backend.dal.errors import NotFoundError
-from backend.dal.shopping_cart_dao import ShoppingCartDAO
-from backend.tests import conftest
+from api.dal.errors import NotFoundError
+from api.dal.shopping_cart_dao import ShoppingCartDAO
+from api.tests import conftest
 
 
 class TestShoppingCartIntegration(unittest.TestCase):

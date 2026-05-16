@@ -1,5 +1,5 @@
 import unittest
-from backend.utils import Dictionary
+from api.utils import Dictionary
 
 class TestDictionary(unittest.TestCase):
     """Test cases for the Dictionary class."""

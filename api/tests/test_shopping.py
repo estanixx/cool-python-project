@@ -1,5 +1,5 @@
 import unittest
-from backend.utils import ShoppingCart, Product
+from api.utils import ShoppingCart, Product
 
 class TestShoppingCart(unittest.TestCase):
     """Unit tests for the ShoppingCart class."""
