@@ -14,21 +14,21 @@ def handler(event, context):  # pylint: disable=unused-argument
             item = dao.create(
                 payload.get("name"),
                 payload.get("price"),
-                payload.get("product_id") or payload.get("productId"),
+                payload.get("uuid") or payload.get("product_id") or payload.get("productId"),
             )
             return _response(200, item)
         if operation == "read":
-            item = dao.read(payload.get("product_id") or payload.get("productId"))
+            item = dao.read(payload.get("uuid") or payload.get("product_id") or payload.get("productId"))
             return _response(200, item)
         if operation == "update":
             item = dao.update(
-                payload.get("product_id") or payload.get("productId"),
+                payload.get("uuid") or payload.get("product_id") or payload.get("productId"),
                 payload.get("name"),
                 payload.get("price"),
             )
             return _response(200, item)
         if operation == "delete":
-            item = dao.delete(payload.get("product_id") or payload.get("productId"))
+            item = dao.delete(payload.get("uuid") or payload.get("product_id") or payload.get("productId"))
             return _response(200, item)
         raise ValidationError("unsupported operation")
     except ValidationError as exc:

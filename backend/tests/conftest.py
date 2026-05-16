@@ -8,9 +8,9 @@ DEFAULT_ENDPOINT = "http://localhost:4566"
 DEFAULT_REGION = "us-east-1"
 
 TABLE_DEFINITIONS: Dict[str, Tuple[str, str]] = {
-    "Dictionary": ("word", "S"),
-    "Product": ("product_id", "S"),
-    "ShoppingCart": ("cart_id", "S"),
+    "Dictionary": ("Word", "S"),
+    "Product": ("uuid", "S"),
+    "ShoppingCart": ("UUID", "S"),
 }
 
 

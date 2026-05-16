@@ -50,4 +50,4 @@ class TestMCPServerTools(unittest.TestCase):
 
         self.assertFalse(result.isError)
         self.assertEqual(result.structuredContent, {"word": "Apple"})
-        handler.assert_called_once_with({"operation": "read", "payload": {"word": "apple"}}, None)
+        handler.assert_called_once_with({"operation": "read", "payload": {"Word": "apple"}}, None)

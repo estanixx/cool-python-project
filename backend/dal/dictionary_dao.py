@@ -11,7 +11,7 @@ class DictionaryDAO:
         if not definition:
             raise ValidationError("definition is required")
         try:
-            item = {"word": normalized_word, "definition": definition}
+            item = {"Word": normalized_word, "definition": definition}
             self.table.put_item(Item=item)
             return item
         except Exception as exc:  # pragma: no cover - boto specifics
@@ -20,7 +20,7 @@ class DictionaryDAO:
     def read(self, word: str) -> dict:
         normalized_word = self._normalize_word(word)
         try:
-            response = self.table.get_item(Key={"word": normalized_word})
+            response = self.table.get_item(Key={"Word": normalized_word})
         except Exception as exc:  # pragma: no cover
             raise DynamoError("failed to read dictionary entry") from exc
 
@@ -35,10 +35,10 @@ class DictionaryDAO:
             raise ValidationError("definition is required")
         try:
             response = self.table.update_item(
-                Key={"word": normalized_word},
+                Key={"Word": normalized_word},
                 UpdateExpression="SET definition = :definition",
                 ExpressionAttributeValues={":definition": definition},
-                ConditionExpression="attribute_exists(word)",
+                ConditionExpression="attribute_exists(Word)",
                 ReturnValues="ALL_NEW",
             )
         except Exception as exc:  # pragma: no cover
@@ -52,8 +52,8 @@ class DictionaryDAO:
         normalized_word = self._normalize_word(word)
         try:
             response = self.table.delete_item(
-                Key={"word": normalized_word},
-                ConditionExpression="attribute_exists(word)",
+                Key={"Word": normalized_word},
+                ConditionExpression="attribute_exists(Word)",
                 ReturnValues="ALL_OLD",
             )
         except Exception as exc:  # pragma: no cover

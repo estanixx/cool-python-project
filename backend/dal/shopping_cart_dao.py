@@ -10,7 +10,7 @@ class ShoppingCartDAO:
         normalized_id = self._normalize_cart_id(cart_id)
         normalized_products = self._normalize_product_ids(product_ids)
         try:
-            item = {"cart_id": normalized_id, "product_ids": normalized_products}
+            item = {"UUID": normalized_id, "product_ids": normalized_products}
             self.table.put_item(Item=item)
             return item
         except Exception as exc:  # pragma: no cover
@@ -19,7 +19,7 @@ class ShoppingCartDAO:
     def read(self, cart_id: str) -> dict:
         normalized_id = self._normalize_cart_id(cart_id)
         try:
-            response = self.table.get_item(Key={"cart_id": normalized_id})
+            response = self.table.get_item(Key={"UUID": normalized_id})
         except Exception as exc:  # pragma: no cover
             raise DynamoError("failed to read shopping cart") from exc
 
@@ -33,10 +33,10 @@ class ShoppingCartDAO:
         normalized_products = self._normalize_product_ids(product_ids)
         try:
             response = self.table.update_item(
-                Key={"cart_id": normalized_id},
+                Key={"UUID": normalized_id},
                 UpdateExpression="SET product_ids = :product_ids",
                 ExpressionAttributeValues={":product_ids": normalized_products},
-                ConditionExpression="attribute_exists(cart_id)",
+                ConditionExpression="attribute_exists(UUID)",
                 ReturnValues="ALL_NEW",
             )
         except Exception as exc:  # pragma: no cover
@@ -50,8 +50,8 @@ class ShoppingCartDAO:
         normalized_id = self._normalize_cart_id(cart_id)
         try:
             response = self.table.delete_item(
-                Key={"cart_id": normalized_id},
-                ConditionExpression="attribute_exists(cart_id)",
+                Key={"UUID": normalized_id},
+                ConditionExpression="attribute_exists(UUID)",
                 ReturnValues="ALL_OLD",
             )
         except Exception as exc:  # pragma: no cover

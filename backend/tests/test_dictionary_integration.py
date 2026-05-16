@@ -13,12 +13,12 @@ class TestDictionaryIntegration(unittest.TestCase):
         conftest.ensure_tables()
 
     def setUp(self):
-        conftest.clear_table("Dictionary", "word")
+        conftest.clear_table("Dictionary", "Word")
         self.dao = DictionaryDAO(conftest.dynamodb_resource())
 
     def test_create_and_read(self):
         created = self.dao.create("apple", "A fruit")
-        self.assertEqual(created["word"], "Apple")
+        self.assertEqual(created["Word"], "Apple")
 
         fetched = self.dao.read("apple")
         self.assertEqual(fetched["definition"], "A fruit")

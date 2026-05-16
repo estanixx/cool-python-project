@@ -15,7 +15,7 @@ class ProductDAO:
 
         product_uuid = self._normalize_uuid(product_id or str(uuid.uuid4()))
         try:
-            item = {"product_id": product_uuid, "name": name, "price": price}
+            item = {"uuid": product_uuid, "name": name, "price": price}
             self.table.put_item(Item=item)
             return item
         except Exception as exc:  # pragma: no cover
@@ -24,7 +24,7 @@ class ProductDAO:
     def read(self, product_id: str) -> dict:
         normalized_id = self._normalize_uuid(product_id)
         try:
-            response = self.table.get_item(Key={"product_id": normalized_id})
+            response = self.table.get_item(Key={"uuid": normalized_id})
         except Exception as exc:  # pragma: no cover
             raise DynamoError("failed to read product") from exc
 
@@ -48,10 +48,10 @@ class ProductDAO:
 
         try:
             response = self.table.update_item(
-                Key={"product_id": normalized_id},
+                Key={"uuid": normalized_id},
                 UpdateExpression="SET " + ", ".join(updates),
                 ExpressionAttributeValues=values,
-                ConditionExpression="attribute_exists(product_id)",
+                ConditionExpression="attribute_exists(uuid)",
                 ReturnValues="ALL_NEW",
             )
         except Exception as exc:  # pragma: no cover
@@ -65,8 +65,8 @@ class ProductDAO:
         normalized_id = self._normalize_uuid(product_id)
         try:
             response = self.table.delete_item(
-                Key={"product_id": normalized_id},
-                ConditionExpression="attribute_exists(product_id)",
+                Key={"uuid": normalized_id},
+                ConditionExpression="attribute_exists(uuid)",
                 ReturnValues="ALL_OLD",
             )
         except Exception as exc:  # pragma: no cover

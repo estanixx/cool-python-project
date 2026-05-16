@@ -11,16 +11,16 @@ def handler(event, context):  # pylint: disable=unused-argument
 
     try:
         if operation == "create":
-            item = dao.create(payload.get("word"), payload.get("definition"))
+            item = dao.create(payload.get("Word") or payload.get("word"), payload.get("definition"))
             return _response(200, item)
         if operation == "read":
-            item = dao.read(payload.get("word"))
+            item = dao.read(payload.get("Word") or payload.get("word"))
             return _response(200, item)
         if operation == "update":
-            item = dao.update(payload.get("word"), payload.get("definition"))
+            item = dao.update(payload.get("Word") or payload.get("word"), payload.get("definition"))
             return _response(200, item)
         if operation == "delete":
-            item = dao.delete(payload.get("word"))
+            item = dao.delete(payload.get("Word") or payload.get("word"))
             return _response(200, item)
         raise ValidationError("unsupported operation")
     except ValidationError as exc:

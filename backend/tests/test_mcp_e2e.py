@@ -27,7 +27,7 @@ class TestMCPE2E(unittest.TestCase):
     def test_dictionary_tool_happy_path(self):
         created = mcp_server.dictionary_create("apple", "A fruit")
         self.assertFalse(created.isError)
-        self.assertEqual(created.structuredContent["word"], "Apple")
+        self.assertEqual(created.structuredContent["Word"], "Apple")
 
         fetched = mcp_server.dictionary_read("apple")
         self.assertFalse(fetched.isError)

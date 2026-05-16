@@ -53,28 +53,28 @@ mcp = FastMCP("serverless-crud", stateless_http=True, json_response=True)
 @mcp.tool()
 def dictionary_create(word: str, definition: str) -> CallToolResult:
     """Create a dictionary entry."""
-    event = _build_event("create", {"word": word, "definition": definition})
+    event = _build_event("create", {"Word": word, "definition": definition})
     return _tool_result(dictionary_handler.handler, event)
 
 
 @mcp.tool()
 def dictionary_read(word: str) -> CallToolResult:
     """Read a dictionary entry by word."""
-    event = _build_event("read", {"word": word})
+    event = _build_event("read", {"Word": word})
     return _tool_result(dictionary_handler.handler, event)
 
 
 @mcp.tool()
 def dictionary_update(word: str, definition: str) -> CallToolResult:
     """Update a dictionary entry."""
-    event = _build_event("update", {"word": word, "definition": definition})
+    event = _build_event("update", {"Word": word, "definition": definition})
     return _tool_result(dictionary_handler.handler, event)
 
 
 @mcp.tool()
 def dictionary_delete(word: str) -> CallToolResult:
     """Delete a dictionary entry by word."""
-    event = _build_event("delete", {"word": word})
+    event = _build_event("delete", {"Word": word})
     return _tool_result(dictionary_handler.handler, event)
 
 
@@ -83,7 +83,7 @@ def product_create(name: str, price: float, product_id: Optional[str] = None) ->
     """Create a product (optionally provide a product_id)."""
     payload: Dict[str, Any] = {"name": name, "price": price}
     if product_id:
-        payload["productId"] = product_id
+        payload["uuid"] = product_id
     event = _build_event("create", payload)
     return _tool_result(product_handler.handler, event)
 
@@ -91,14 +91,14 @@ def product_create(name: str, price: float, product_id: Optional[str] = None) ->
 @mcp.tool()
 def product_read(product_id: str) -> CallToolResult:
     """Read a product by id."""
-    event = _build_event("read", {"productId": product_id})
+    event = _build_event("read", {"uuid": product_id})
     return _tool_result(product_handler.handler, event)
 
 
 @mcp.tool()
 def product_update(product_id: str, name: Optional[str] = None, price: Optional[float] = None) -> CallToolResult:
     """Update product fields by id."""
-    payload: Dict[str, Any] = {"productId": product_id}
+    payload: Dict[str, Any] = {"uuid": product_id}
     if name is not None:
         payload["name"] = name
     if price is not None:
@@ -110,35 +110,35 @@ def product_update(product_id: str, name: Optional[str] = None, price: Optional[
 @mcp.tool()
 def product_delete(product_id: str) -> CallToolResult:
     """Delete a product by id."""
-    event = _build_event("delete", {"productId": product_id})
+    event = _build_event("delete", {"uuid": product_id})
     return _tool_result(product_handler.handler, event)
 
 
 @mcp.tool()
 def shopping_cart_create(cart_id: str, product_ids: List[str]) -> CallToolResult:
     """Create a shopping cart with product IDs."""
-    event = _build_event("create", {"cartId": cart_id, "productIds": product_ids})
+    event = _build_event("create", {"UUID": cart_id, "productIds": product_ids})
     return _tool_result(shopping_cart_handler.handler, event)
 
 
 @mcp.tool()
 def shopping_cart_read(cart_id: str) -> CallToolResult:
     """Read a shopping cart by id."""
-    event = _build_event("read", {"cartId": cart_id})
+    event = _build_event("read", {"UUID": cart_id})
     return _tool_result(shopping_cart_handler.handler, event)
 
 
 @mcp.tool()
 def shopping_cart_update(cart_id: str, product_ids: List[str]) -> CallToolResult:
     """Update a shopping cart's product IDs."""
-    event = _build_event("update", {"cartId": cart_id, "productIds": product_ids})
+    event = _build_event("update", {"UUID": cart_id, "productIds": product_ids})
     return _tool_result(shopping_cart_handler.handler, event)
 
 
 @mcp.tool()
 def shopping_cart_delete(cart_id: str) -> CallToolResult:
     """Delete a shopping cart by id."""
-    event = _build_event("delete", {"cartId": cart_id})
+    event = _build_event("delete", {"UUID": cart_id})
     return _tool_result(shopping_cart_handler.handler, event)
 
 

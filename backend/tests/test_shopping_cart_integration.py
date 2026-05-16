@@ -14,12 +14,12 @@ class TestShoppingCartIntegration(unittest.TestCase):
         conftest.ensure_tables()
 
     def setUp(self):
-        conftest.clear_table("ShoppingCart", "cart_id")
+        conftest.clear_table("ShoppingCart", "UUID")
         self.dao = ShoppingCartDAO(conftest.dynamodb_resource())
 
     def test_create_and_read(self):
         created = self.dao.create("cart-1", ["P1", "P2"])
-        self.assertEqual(created["cart_id"], "CART-1")
+        self.assertEqual(created["UUID"], "CART-1")
 
         fetched = self.dao.read("cart-1")
         self.assertEqual(fetched["product_ids"], ["p1", "p2"])

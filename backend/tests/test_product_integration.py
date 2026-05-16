@@ -14,12 +14,12 @@ class TestProductIntegration(unittest.TestCase):
         conftest.ensure_tables()
 
     def setUp(self):
-        conftest.clear_table("Product", "product_id")
+        conftest.clear_table("Product", "uuid")
         self.dao = ProductDAO(conftest.dynamodb_resource())
 
     def test_create_and_read(self):
         created = self.dao.create("Apple", 1.5)
-        product_id = created["product_id"]
+        product_id = created["uuid"]
 
         fetched = self.dao.read(product_id)
         self.assertEqual(fetched["name"], "Apple")
