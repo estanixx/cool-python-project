@@ -3,7 +3,7 @@ variable "stage" {
   type        = string
 
   validation {
-    condition     = length(trim(var.stage)) > 0
+    condition     = length(var.stage) > 0
     error_message = "stage is required and cannot be empty."
   }
 }
@@ -30,9 +30,9 @@ variable "table_names" {
 
   validation {
     condition = (
-      length(trim(var.table_names.dictionary)) > 0 &&
-      length(trim(var.table_names.product)) > 0 &&
-      length(trim(var.table_names.shopping_cart)) > 0
+      length(var.table_names.dictionary) > 0 &&
+      length(var.table_names.product) > 0 &&
+      length(var.table_names.shopping_cart) > 0
     )
     error_message = "All table_names fields must be provided and non-empty."
   }
@@ -59,9 +59,9 @@ variable "lambda_artifacts" {
 
   validation {
     condition = (
-      length(trim(var.lambda_artifacts.dictionary)) > 0 &&
-      length(trim(var.lambda_artifacts.product)) > 0 &&
-      length(trim(var.lambda_artifacts.shopping_cart)) > 0
+      length(var.lambda_artifacts.dictionary) > 0 &&
+      length(var.lambda_artifacts.product) > 0 &&
+      length(var.lambda_artifacts.shopping_cart) > 0
     )
     error_message = "All lambda_artifacts fields must be provided and non-empty."
   }
@@ -77,9 +77,9 @@ variable "lambda_function_names" {
 
   validation {
     condition = (
-      length(trim(var.lambda_function_names.dictionary)) > 0 &&
-      length(trim(var.lambda_function_names.product)) > 0 &&
-      length(trim(var.lambda_function_names.shopping_cart)) > 0
+      length(var.lambda_function_names.dictionary) > 0 &&
+      length(var.lambda_function_names.product) > 0 &&
+      length(var.lambda_function_names.shopping_cart) > 0
     )
     error_message = "All lambda_function_names fields must be provided and non-empty."
   }
@@ -95,9 +95,9 @@ variable "lambda_handler_names" {
 
   validation {
     condition = (
-      length(trim(var.lambda_handler_names.dictionary)) > 0 &&
-      length(trim(var.lambda_handler_names.product)) > 0 &&
-      length(trim(var.lambda_handler_names.shopping_cart)) > 0
+      length(var.lambda_handler_names.dictionary) > 0 &&
+      length(var.lambda_handler_names.product) > 0 &&
+      length(var.lambda_handler_names.shopping_cart) > 0
     )
     error_message = "All lambda_handler_names fields must be provided and non-empty."
   }

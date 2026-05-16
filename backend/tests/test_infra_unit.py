@@ -55,4 +55,4 @@ class TestInfraLambdaIam(unittest.TestCase):
 
     def test_lambda_role_attachment_uses_lambda_role(self):
         content = read_infra("modules/crud/main.tf")
-        self.assertRegex(content, r'role\s*=\s*aws_iam_role\.lambda_role\.name')
+        self.assertRegex(content, r'role\s*=\s*aws_iam_role\.lambda_role\[0\]\.name')

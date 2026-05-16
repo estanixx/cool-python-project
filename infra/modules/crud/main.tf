@@ -56,6 +56,7 @@ data "aws_iam_policy_document" "lambda_assume" {
 }
 
 resource "aws_iam_role" "lambda_role" {
+  count              = var.stage == "prod" ? 1 : 0
   name               = var.lambda_role_name
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 
@@ -63,6 +64,7 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 data "aws_iam_policy_document" "crud_policy" {
+  count = var.stage == "prod" ? 1 : 0
   statement {
     sid = "DynamoCrud"
     actions = [
@@ -82,50 +84,56 @@ data "aws_iam_policy_document" "crud_policy" {
 }
 
 resource "aws_iam_policy" "crud_policy" {
+  count  = var.stage == "prod" ? 1 : 0
   name   = "${var.lambda_role_name}-crud"
-  policy = data.aws_iam_policy_document.crud_policy.json
+  policy = data.aws_iam_policy_document.crud_policy[0].json
 
   tags = local.tags
 }
 
 resource "aws_iam_role_policy_attachment" "crud_attach" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = aws_iam_policy.crud_policy.arn
+  count      = var.stage == "prod" ? 1 : 0
+  role       = aws_iam_role.lambda_role[0].name
+  policy_arn = aws_iam_policy.crud_policy[0].arn
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_basic_attach" {
-  role       = aws_iam_role.lambda_role.name
+  count      = var.stage == "prod" ? 1 : 0
+  role       = aws_iam_role.lambda_role[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_lambda_function" "dictionary" {
-  function_name = var.lambda_function_names.dictionary
-  role          = aws_iam_role.lambda_role.arn
-  handler       = var.lambda_handler_names.dictionary
-  runtime       = var.lambda_runtime
-  filename      = var.lambda_artifacts.dictionary
+  count            = var.stage == "prod" ? 1 : 0
+  function_name    = var.lambda_function_names.dictionary
+  role             = aws_iam_role.lambda_role[0].arn
+  handler          = var.lambda_handler_names.dictionary
+  runtime          = var.lambda_runtime
+  filename         = var.lambda_artifacts.dictionary
   source_code_hash = filebase64sha256(var.lambda_artifacts.dictionary)
 
   tags = local.tags
 }
 
 resource "aws_lambda_function" "product" {
-  function_name = var.lambda_function_names.product
-  role          = aws_iam_role.lambda_role.arn
-  handler       = var.lambda_handler_names.product
-  runtime       = var.lambda_runtime
-  filename      = var.lambda_artifacts.product
+  count            = var.stage == "prod" ? 1 : 0
+  function_name    = var.lambda_function_names.product
+  role             = aws_iam_role.lambda_role[0].arn
+  handler          = var.lambda_handler_names.product
+  runtime          = var.lambda_runtime
+  filename         = var.lambda_artifacts.product
   source_code_hash = filebase64sha256(var.lambda_artifacts.product)
 
   tags = local.tags
 }
 
 resource "aws_lambda_function" "shopping_cart" {
-  function_name = var.lambda_function_names.shopping_cart
-  role          = aws_iam_role.lambda_role.arn
-  handler       = var.lambda_handler_names.shopping_cart
-  runtime       = var.lambda_runtime
-  filename      = var.lambda_artifacts.shopping_cart
+  count            = var.stage == "prod" ? 1 : 0
+  function_name    = var.lambda_function_names.shopping_cart
+  role             = aws_iam_role.lambda_role[0].arn
+  handler          = var.lambda_handler_names.shopping_cart
+  runtime          = var.lambda_runtime
+  filename         = var.lambda_artifacts.shopping_cart
   source_code_hash = filebase64sha256(var.lambda_artifacts.shopping_cart)
 
   tags = local.tags

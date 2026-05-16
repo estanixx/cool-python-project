@@ -1,3 +1,8 @@
+"""Test configuration for Floci-backed integration tests.
+
+Tables are provisioned by Terraform (infra/test/).
+This module only sets env vars and cleans data between test runs.
+"""
 import os
 from typing import Dict, Iterable, Tuple
 
@@ -48,25 +53,20 @@ def floci_available() -> bool:
 
 
 def ensure_tables() -> None:
+    """Verify Terraform-provisioned tables exist. Raise if missing."""
     configure_test_env()
     client = dynamodb_client()
     existing = set(client.list_tables().get("TableNames", []))
-    for name, (hash_key, key_type) in TABLE_DEFINITIONS.items():
-        if name in existing:
-            continue
-        client.create_table(
-            TableName=name,
-            KeySchema=[{"AttributeName": hash_key, "KeyType": "HASH"}],
-            AttributeDefinitions=[{"AttributeName": hash_key, "AttributeType": key_type}],
-            ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
-        )
     for name in TABLE_DEFINITIONS:
-        dynamodb_resource().Table(name).wait_until_exists()
+        if name not in existing:
+            raise RuntimeError(
+                f"Table '{name}' not found. Run: terraform -chdir=infra/test apply"
+            )
 
 
 def clear_table(table_name: str, hash_key: str) -> None:
     table = dynamodb_resource().Table(table_name)
-    attr_name = f"#hk"
+    attr_name = "#hk"
     response = table.scan(
         ProjectionExpression=attr_name,
         ExpressionAttributeNames={attr_name: hash_key},
