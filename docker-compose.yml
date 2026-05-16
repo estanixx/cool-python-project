@@ -1,0 +1,9 @@
+services:
+  floci:
+    image: floci/floci:latest
+    ports:
+      - "4566:4566"
+    environment:
+      # LocalStack vars auto-translated ✓
+      LOCALSTACK_HOST: floci
+      PERSISTENCE: "1"
