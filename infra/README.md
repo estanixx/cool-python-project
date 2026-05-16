@@ -1,111 +1,108 @@
 # Infrastructure as Code — Terraform
 
-## Estructura de carpetas
+## Directory Structure
 
 ```
 infra/
 ├── modules/
-│   └── crud/              ← Módulo reutilizable (QUÉ desplegar)
-│       ├── main.tf        ←   DynamoDB tables, IAM roles, Lambda functions
-│       ├── variables.tf   ←   Parámetros de entrada
-│       └── outputs.tf     ←   Valores de salida (ARNs, nombres)
-├── test/                  ← Entorno local (DÓNDE desplegar — local)
-│   ├── main.tf            ←   Invoca module "crud" con stage=local
-│   ├── providers.tf       ←   Provider AWS → Floci (localhost:4566)
-│   ├── variables.tf       ←   Variables con defaults locales
-│   └── terraform.tfvars   ←   Valores concretos para local
-└── prod/                  ← Entorno producción (DÓNDE desplegar — AWS real)
-    ├── main.tf            ←   Invoca module "crud" con stage=prod + auto-zip
-    ├── providers.tf       ←   Provider AWS → AWS real (sin overrides)
-    └── variables.tf       ←   Variables con defaults de producción
+│   └── crud/              ← Reusable module (WHAT to deploy)
+│       ├── main.tf        ←   DynamoDB, IAM, Lambda, API Gateway
+│       ├── variables.tf   ←   Input parameters
+│       └── outputs.tf     ←   Output values (ARNs, endpoints)
+├── test/                  ← Local environment (WHERE — Floci)
+│   ├── main.tf            ←   Invokes "crud" module with stage=local + auto-zip
+│   ├── providers.tf       ←   AWS provider → Floci (localhost:4566)
+│   ├── variables.tf       ←   Variables with local defaults
+│   └── terraform.tfvars   ←   Concrete values for local
+└── prod/                  ← Production environment (WHERE — AWS real)
+    ├── main.tf            ←   Invokes "crud" module with stage=prod + auto-zip
+    ├── providers.tf       ←   AWS provider → AWS real (no overrides)
+    └── variables.tf       ←   Variables with production defaults
 ```
 
-## ¿Para qué sirve cada carpeta?
+## What Each Directory Does
 
-### `modules/crud/` — El QUÉ (módulo reutilizable)
+### `modules/crud/` — The WHAT (reusable module)
 
-Define **qué recursos** se crean, sin decir **dónde**. Es una plantilla que se
-reutiliza en cada entorno.
+Defines **what resources** to create, without specifying **where**. It is a template reused across environments.
 
-**Contiene:**
-- 3 tablas DynamoDB (Dictionary, Product, ShoppingCart)
-- IAM role + policy para Lambda (solo en prod)
-- 3 Lambda functions (solo en prod)
+**Contains:**
+- 3 DynamoDB tables (Dictionary, Product, ShoppingCart)
+- IAM role + policy for Lambda
+- 3 Lambda functions with environment variables
+- API Gateway v2 (HTTP API) with routes and Lambda integrations
+- Lambda permissions for API Gateway invocation
 
-**No sabe** si se despliega en Floci o en AWS real. Solo recibe variables.
+It does **not** know whether it deploys to Floci or AWS real. It only receives variables.
 
-### `test/` — Entorno local (Floci)
+### `test/` — Local environment (Floci)
 
-Despliega **solo DynamoDB** en Floci (`localhost:4566`).
+Deploys **everything** (DynamoDB + IAM + Lambda + API Gateway) to Floci (`localhost:4566`).
 
-**No crea Lambdas ni IAM** porque Floci no los soporta.
+**Auto-generates Lambda zips** during `terraform plan` — no manual zip creation needed.
 
-Se usa para:
-- Desarrollo local
-- Tests de integración contra DynamoDB local
-- Validar que el código funciona antes de subir a AWS
+Used for:
+- Local development
+- Integration tests against local DynamoDB
+- Validating code works before pushing to AWS
 
-### `prod/` — Entorno producción (AWS real)
+### `prod/` — Production environment (AWS real)
 
-Despliega **todo**: DynamoDB + IAM + Lambda functions en AWS real.
+Deploys **everything** (DynamoDB + IAM + Lambda + API Gateway) to real AWS.
 
-**Auto-genera los zips** de cada Lambda durante `terraform plan` — no hay que
-crearlos manualmente.
+**Auto-generates Lambda zips** during `terraform plan` — same mechanism as `test/`.
 
-## ¿Por qué usar módulos?
+## Why Use Modules?
 
-Sin módulos, tendrías que duplicar las 3 tablas, IAM, y Lambdas en `test/` y
-`prod/`. Con un módulo:
+Without modules, you would duplicate tables, IAM, Lambdas, and API Gateway in both `test/` and `prod/`. With a module:
 
-| Sin módulos | Con módulos |
-|-------------|-------------|
-| Definir tablas en `test/` | Definir tablas **una vez** en `modules/crud/` |
-| Definir tablas en `prod/` | Invocar módulo desde `test/` y `prod/` |
-| Si cambias algo, editas 2 lugares | Si cambias algo, editas **1 lugar** |
+| Without modules | With modules |
+|-----------------|--------------|
+| Define tables in `test/` | Define tables **once** in `modules/crud/` |
+| Define tables in `prod/` | Invoke module from `test/` and `prod/` |
+| Change something → edit 2 places | Change something → edit **1 place** |
 
-El módulo es la **fuente de verdad** de qué recursos existen. Los entornos
-(`test/`, `prod/`) solo dicen **con qué parámetros** invocarlo.
+The module is the **single source of truth** for what resources exist. Environments (`test/`, `prod/`) only specify **with what parameters** to invoke it.
 
-## Flujo de trabajo
+## Workflow
 
-### Local (desarrollo y tests)
+### Local (development and tests)
 
 ```bash
-# 1. Asegúrate de que Floci esté corriendo
+# 1. Make sure Floci is running
 docker-compose up -d
 
-# 2. Desplegar infra local (solo DynamoDB)
-terraform -chdir=infra/test init     # solo la primera vez
+# 2. Deploy local infrastructure (DynamoDB + Lambda + API Gateway)
+terraform -chdir=infra/test init     # only first time
 terraform -chdir=infra/test apply
 
-# 3. Correr tests (usan las tablas creadas por Terraform)
+# 3. Run tests (use tables created by Terraform)
 python3 -m unittest discover -s backend/tests -v
 
-# 4. Destruir infra cuando termines
+# 4. Destroy infrastructure when done
 terraform -chdir=infra/test destroy
 ```
 
-### Producción (AWS real)
+### Production (AWS real)
 
 ```bash
-# 1. Configurar credenciales AWS
+# 1. Configure AWS credentials
 export AWS_ACCESS_KEY_ID="..."
 export AWS_SECRET_ACCESS_KEY="..."
 export AWS_DEFAULT_REGION="us-east-1"
 
-# 2. Desplegar infra en AWS (DynamoDB + IAM + Lambda)
-terraform -chdir=infra/prod init     # solo la primera vez
-terraform -chdir=infra/prod plan     # revisar cambios antes de aplicar
+# 2. Deploy infrastructure to AWS (DynamoDB + IAM + Lambda + API Gateway)
+terraform -chdir=infra/prod init     # only first time
+terraform -chdir=infra/prod plan     # review changes before applying
 terraform -chdir=infra/prod apply
 
-# 3. Los zips de Lambda se generan automáticamente durante plan/apply
-#    No necesitas crearlos manualmente.
+# 3. Lambda zips are auto-generated during plan/apply
+#    No manual zip creation needed.
 ```
 
-## ¿Cómo funciona el auto-zip de Lambda?
+## Auto-Generated Lambda Zips
 
-En `infra/prod/main.tf` hay `data "archive_file"` blocks que leen los archivos
-Python del backend y generan zips **durante** `terraform plan`:
+Both `test/` and `prod/` use `data "archive_file"` blocks that read Python source files and generate zips **during** `terraform plan`:
 
 ```hcl
 data "archive_file" "dictionary" {
@@ -116,42 +113,79 @@ data "archive_file" "dictionary" {
     content  = file("${local.backend_root}/handlers/dictionary_handler.py")
     filename = "backend/handlers/dictionary_handler.py"
   }
-  # ... más archivos (DAL, __init__.py, etc.)
+  # ... more files (DAL, __init__.py, etc.)
 }
 ```
 
-Cada Lambda incluye:
-- Su handler específico
-- El DAL compartido (`db_client.py`, `errors.py`, `*_dao.py`)
-- Los `__init__.py` necesarios para imports de Python
+Each Lambda package includes:
+- Its specific handler
+- Shared DAL (`db_client.py`, `errors.py`, `*_dao.py`)
+- Required `__init__.py` files for Python imports
 
-Los zips se guardan en `infra/prod/.terraform/artifacts/` (gitignored).
+Zips are stored in `.terraform/artifacts/` (gitignored).
 
-## Stage-aware configuration
+## API Gateway Endpoints
 
-El módulo usa `var.stage` para decidir qué crear:
+The module creates an HTTP API (v2) with these routes:
 
-| Recurso | stage=local | stage=prod |
-|---------|-------------|------------|
-| DynamoDB tables | ✅ | ✅ |
-| IAM role/policy | ❌ | ✅ |
-| Lambda functions | ❌ | ✅ |
+| Route | Lambda | Methods |
+|-------|--------|---------|
+| `ANY /dictionary` | `dictionary-local` / `dictionary-prod` | GET, POST, PUT, DELETE |
+| `ANY /product` | `product-local` / `product-prod` | GET, POST, PUT, DELETE |
+| `ANY /shopping-cart` | `shopping-cart-local` / `shopping-cart-prod` | GET, POST, PUT, DELETE |
 
-Esto se logra con `count = var.stage == "prod" ? 1 : 0` en los recursos
-que solo aplican en producción.
+### Testing locally via Floci
 
-## Variables principales
+Floci exposes API Gateway on `localhost:4566`. The invoke URL format is:
 
-| Variable | Default (test) | Default (prod) | Descripción |
+```bash
+API_ID=$(terraform -chdir=infra/test output -raw api_endpoint | grep -oP '(?<=//)[^.]+')
+
+# Create dictionary entry
+curl -X POST "http://localhost:4566/restapis/$API_ID/_user_request_/dictionary" \
+  -H "Content-Type: application/json" \
+  -d '{"operation":"create","payload":{"Word":"Apple","definition":"A fruit"}}'
+```
+
+> **Note:** Floci Lambda execution requires Docker socket access. If you see `Lambda.InitError`, ensure Docker is properly configured for WSL2 integration.
+
+### Testing production via AWS
+
+```bash
+API_URL=$(terraform -chdir=infra/prod output -raw api_endpoint)
+
+curl -X POST "$API_URL/dictionary" \
+  -H "Content-Type: application/json" \
+  -d '{"operation":"create","payload":{"Word":"Apple","definition":"A fruit"}}'
+```
+
+## Stage-Aware Configuration
+
+The module uses `var.stage` to set Lambda environment variables:
+
+```hcl
+environment {
+  variables = {
+    STAGE            = var.stage
+    AWS_ENDPOINT_URL = var.aws_endpoint_url
+  }
+}
+```
+
+This allows the same Lambda code to route to Floci (local) or AWS (prod) based on environment variables.
+
+## Main Variables
+
+| Variable | Default (test) | Default (prod) | Description |
 |----------|----------------|----------------|-------------|
-| `stage` | `local` | `prod` | Entorno de despliegue |
-| `aws_region` | `us-east-1` | `us-east-1` | Región AWS |
-| `aws_endpoint_url` | `http://localhost:4566` | `""` | Override para Floci |
+| `stage` | `local` | `prod` | Deployment environment |
+| `aws_region` | `us-east-1` | `us-east-1` | AWS region |
+| `aws_endpoint_url` | `http://localhost:4566` | `""` | Override for Floci |
 
-## Tablas DynamoDB
+## DynamoDB Tables
 
-| Tabla | Partition Key | Atributos |
-|-------|---------------|-----------|
+| Table | Partition Key | Attributes |
+|-------|---------------|------------|
 | Dictionary | `Word` (S) | `definition` (S) |
 | Product | `uuid` (S) | `name` (S), `price` (N) |
 | ShoppingCart | `UUID` (S) | `product_ids` (List) |

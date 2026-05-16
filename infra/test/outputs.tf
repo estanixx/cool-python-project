@@ -12,3 +12,8 @@ output "lambda_role_arn" {
   description = "IAM role ARN for CRUD Lambdas."
   value       = module.crud.lambda_role_arn
 }
+
+output "api_endpoint" {
+  description = "API Gateway HTTP endpoint."
+  value       = module.crud.api_endpoint
+}

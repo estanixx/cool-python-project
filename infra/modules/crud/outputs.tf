@@ -18,16 +18,21 @@ output "table_arns" {
 
 output "lambda_role_arn" {
   description = "IAM role ARN for CRUD Lambdas."
-  value       = var.stage == "prod" ? aws_iam_role.lambda_role[0].arn : null
+  value       = aws_iam_role.lambda_role.arn
 }
 
 output "lambda_arns" {
   description = "Lambda function ARNs."
-  value = var.stage == "prod" ? {
-    dictionary    = aws_lambda_function.dictionary[0].arn
-    product       = aws_lambda_function.product[0].arn
-    shopping_cart = aws_lambda_function.shopping_cart[0].arn
-  } : null
+  value = {
+    dictionary    = aws_lambda_function.dictionary.arn
+    product       = aws_lambda_function.product.arn
+    shopping_cart = aws_lambda_function.shopping_cart.arn
+  }
+}
+
+output "api_endpoint" {
+  description = "API Gateway HTTP endpoint."
+  value       = aws_apigatewayv2_stage.default.invoke_url
 }
 
 output "aws_endpoint_url" {

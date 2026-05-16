@@ -36,9 +36,10 @@ class DictionaryDAO:
         try:
             response = self.table.update_item(
                 Key={"Word": normalized_word},
-                UpdateExpression="SET definition = :definition",
+                UpdateExpression="SET #def = :definition",
+                ExpressionAttributeNames={"#pk": "Word", "#def": "definition"},
                 ExpressionAttributeValues={":definition": definition},
-                ConditionExpression="attribute_exists(Word)",
+                ConditionExpression="attribute_exists(#pk)",
                 ReturnValues="ALL_NEW",
             )
         except Exception as exc:  # pragma: no cover
@@ -53,7 +54,8 @@ class DictionaryDAO:
         try:
             response = self.table.delete_item(
                 Key={"Word": normalized_word},
-                ConditionExpression="attribute_exists(Word)",
+                ConditionExpression="attribute_exists(#pk)",
+                ExpressionAttributeNames={"#pk": "Word"},
                 ReturnValues="ALL_OLD",
             )
         except Exception as exc:  # pragma: no cover
