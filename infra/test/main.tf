@@ -1,3 +1,6 @@
+# Lambda zip artifacts are only needed for prod (Floci doesn't support Lambda).
+# For local stage, only DynamoDB tables are provisioned.
+
 module "crud" {
   source = "../modules/crud"
 
@@ -25,9 +28,10 @@ module "crud" {
     shopping_cart = "backend.handlers.shopping_cart_handler.handler"
   }
 
+  # Not used for local — Floci doesn't support Lambda.
   lambda_artifacts = {
-    dictionary    = "${path.module}/artifacts/dictionary.zip"
-    product       = "${path.module}/artifacts/product.zip"
-    shopping_cart = "${path.module}/artifacts/shopping_cart.zip"
+    dictionary    = ""
+    product       = ""
+    shopping_cart = ""
   }
 }

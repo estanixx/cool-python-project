@@ -50,21 +50,12 @@ variable "lambda_runtime" {
 }
 
 variable "lambda_artifacts" {
-  description = "Zip artifacts for Lambda functions."
+  description = "Zip artifacts for Lambda functions. Required only when stage=prod."
   type = object({
     dictionary    = string
     product       = string
     shopping_cart = string
   })
-
-  validation {
-    condition = (
-      length(var.lambda_artifacts.dictionary) > 0 &&
-      length(var.lambda_artifacts.product) > 0 &&
-      length(var.lambda_artifacts.shopping_cart) > 0
-    )
-    error_message = "All lambda_artifacts fields must be provided and non-empty."
-  }
 }
 
 variable "lambda_function_names" {
