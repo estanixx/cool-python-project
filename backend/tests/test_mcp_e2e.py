@@ -22,7 +22,7 @@ class TestMCPE2E(unittest.TestCase):
         conftest.ensure_tables()
 
     def setUp(self):
-        conftest.clear_table("Dictionary", "word")
+        conftest.clear_table("Dictionary", "Word")
 
     def test_dictionary_tool_happy_path(self):
         created = mcp_server.dictionary_create("apple", "A fruit")
@@ -37,4 +37,4 @@ class TestMCPE2E(unittest.TestCase):
         result = mcp_server.dictionary_read("missing")
         self.assertTrue(result.isError)
         self.assertIn("not found", result.structuredContent["error"])
-        self.assertEqual(result._meta.get("status_code"), 404)
+        self.assertEqual(result.meta.get("status_code"), 404)

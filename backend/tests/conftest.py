@@ -66,7 +66,11 @@ def ensure_tables() -> None:
 
 def clear_table(table_name: str, hash_key: str) -> None:
     table = dynamodb_resource().Table(table_name)
-    response = table.scan(ProjectionExpression=hash_key)
+    attr_name = f"#hk"
+    response = table.scan(
+        ProjectionExpression=attr_name,
+        ExpressionAttributeNames={attr_name: hash_key},
+    )
     items: Iterable[dict] = response.get("Items", [])
     with table.batch_writer() as batch:
         for item in items:

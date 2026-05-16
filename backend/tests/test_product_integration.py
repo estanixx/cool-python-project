@@ -1,4 +1,5 @@
 import unittest
+from decimal import Decimal
 
 from backend.dal.errors import NotFoundError
 from backend.dal.product_dao import ProductDAO
@@ -23,7 +24,7 @@ class TestProductIntegration(unittest.TestCase):
 
         fetched = self.dao.read(product_id)
         self.assertEqual(fetched["name"], "Apple")
-        self.assertEqual(fetched["price"], 1.5)
+        self.assertEqual(fetched["price"], Decimal("1.5"))
 
     def test_read_missing_returns_not_found(self):
         with self.assertRaises(NotFoundError) as context:

@@ -1,5 +1,6 @@
 import os
 import uuid
+from decimal import Decimal
 from .errors import NotFoundError, ValidationError, DynamoError
 
 
@@ -15,7 +16,7 @@ class ProductDAO:
 
         product_uuid = self._normalize_uuid(product_id or str(uuid.uuid4()))
         try:
-            item = {"uuid": product_uuid, "name": name, "price": price}
+            item = {"uuid": product_uuid, "name": name, "price": Decimal(str(price))}
             self.table.put_item(Item=item)
             return item
         except Exception as exc:  # pragma: no cover
@@ -51,7 +52,8 @@ class ProductDAO:
                 Key={"uuid": normalized_id},
                 UpdateExpression="SET " + ", ".join(updates),
                 ExpressionAttributeValues=values,
-                ConditionExpression="attribute_exists(uuid)",
+                ExpressionAttributeNames={"#pk": "uuid"},
+                ConditionExpression="attribute_exists(#pk)",
                 ReturnValues="ALL_NEW",
             )
         except Exception as exc:  # pragma: no cover
@@ -66,7 +68,8 @@ class ProductDAO:
         try:
             response = self.table.delete_item(
                 Key={"uuid": normalized_id},
-                ConditionExpression="attribute_exists(uuid)",
+                ConditionExpression="attribute_exists(#pk)",
+                ExpressionAttributeNames={"#pk": "uuid"},
                 ReturnValues="ALL_OLD",
             )
         except Exception as exc:  # pragma: no cover
