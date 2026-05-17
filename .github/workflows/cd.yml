@@ -76,7 +76,8 @@ jobs:
   deploy:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    needs: [test, detect-changes]
+    needs: [test, detect-changes, build-and-push]
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.detect-changes.result == 'success' && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
     steps:
       - uses: actions/checkout@v4
 
