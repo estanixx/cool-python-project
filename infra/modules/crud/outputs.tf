@@ -46,8 +46,40 @@ output "mcp_ecr_repository_url" {
 }
 
 output "mcp_service_endpoint" {
-  description = "MCP server service endpoint (if deployed)."
-  value       = var.stage == "prod" ? "http://${aws_ecs_service.mcp_server[0].id}" : null
+  description = "MCP server service endpoint (ALB DNS when enabled, fallback otherwise)."
+  value = var.enable_alb && var.stage == "prod" ? "http://${aws_lb.mcp[0].dns_name}" : (
+    var.stage == "prod" ? "http://${aws_ecs_service.mcp_server[0].id}" : null
+  )
+}
+
+output "alb_dns_name" {
+  description = "ALB DNS name (only when enable_alb=true)."
+  value       = var.enable_alb && var.stage == "prod" ? aws_lb.mcp[0].dns_name : null
+}
+
+output "alb_arn" {
+  description = "ALB ARN (only when enable_alb=true)."
+  value       = var.enable_alb && var.stage == "prod" ? aws_lb.mcp[0].arn : null
+}
+
+output "alb_security_group_id" {
+  description = "ALB security group ID (only when enable_alb=true)."
+  value       = var.enable_alb && var.stage == "prod" ? aws_security_group.alb[0].id : null
+}
+
+output "public_subnet_ids" {
+  description = "Public subnet IDs for ALB (only when enable_alb=true)."
+  value       = var.enable_alb ? aws_subnet.public[*].id : null
+}
+
+output "private_subnet_ids" {
+  description = "Private subnet IDs for ECS Fargate (only when enable_alb=true)."
+  value       = var.enable_alb ? aws_subnet.private[*].id : null
+}
+
+output "vpc_id" {
+  description = "VPC ID (only when enable_alb=true)."
+  value       = var.enable_alb ? aws_vpc.main[0].id : null
 }
 
 output "aws_endpoint_url" {

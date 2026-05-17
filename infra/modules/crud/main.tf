@@ -257,6 +257,96 @@ resource "aws_lambda_permission" "shopping_cart" {
   source_arn    = "${aws_apigatewayv2_api.crud_api.execution_arn}/*/*"
 }
 
+# --- VPC Networking (prod, when enable_alb=true) ---
+
+resource "aws_vpc" "main" {
+  count                = var.enable_alb ? 1 : 0
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = merge(local.tags, { Name = "mcp-vpc-${var.stage}" })
+}
+
+resource "aws_internet_gateway" "main" {
+  count  = var.enable_alb ? 1 : 0
+  vpc_id = aws_vpc.main[0].id
+
+  tags = merge(local.tags, { Name = "mcp-igw-${var.stage}" })
+}
+
+resource "aws_subnet" "public" {
+  count                   = var.enable_alb ? length(var.public_subnet_cidrs) : 0
+  vpc_id                  = aws_vpc.main[0].id
+  cidr_block              = var.public_subnet_cidrs[count.index]
+  availability_zone       = var.availability_zones[count.index]
+  map_public_ip_on_launch = true
+
+  tags = merge(local.tags, { Name = "mcp-public-${var.stage}-${count.index + 1}" })
+}
+
+resource "aws_subnet" "private" {
+  count             = var.enable_alb ? length(var.private_subnet_cidrs) : 0
+  vpc_id            = aws_vpc.main[0].id
+  cidr_block        = var.private_subnet_cidrs[count.index]
+  availability_zone = var.availability_zones[count.index]
+
+  tags = merge(local.tags, { Name = "mcp-private-${var.stage}-${count.index + 1}" })
+}
+
+resource "aws_route_table" "public" {
+  count  = var.enable_alb ? 1 : 0
+  vpc_id = aws_vpc.main[0].id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main[0].id
+  }
+
+  tags = merge(local.tags, { Name = "mcp-public-rt-${var.stage}" })
+}
+
+resource "aws_route_table_association" "public" {
+  count          = var.enable_alb ? length(var.public_subnet_cidrs) : 0
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public[0].id
+}
+
+resource "aws_eip" "nat" {
+  count  = var.enable_alb ? 1 : 0
+  domain = "vpc"
+
+  tags = merge(local.tags, { Name = "mcp-nat-eip-${var.stage}" })
+}
+
+resource "aws_nat_gateway" "main" {
+  count         = var.enable_alb ? 1 : 0
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[0].id
+
+  tags = merge(local.tags, { Name = "mcp-nat-gw-${var.stage}" })
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_route_table" "private" {
+  count  = var.enable_alb ? 1 : 0
+  vpc_id = aws_vpc.main[0].id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main[0].id
+  }
+
+  tags = merge(local.tags, { Name = "mcp-private-rt-${var.stage}" })
+}
+
+resource "aws_route_table_association" "private" {
+  count          = var.enable_alb ? length(var.private_subnet_cidrs) : 0
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private[0].id
+}
+
 # --- ECS Fargate for MCP Server (Production only) ---
 
 resource "aws_ecr_repository" "mcp_server" {
@@ -316,17 +406,57 @@ resource "aws_iam_role" "ecs_task_role" {
   tags = local.tags
 }
 
+# ALB Security Group (created when enable_alb=true)
+resource "aws_security_group" "alb" {
+  count       = var.enable_alb && var.stage == "prod" ? 1 : 0
+  name        = "alb-sg-${var.stage}"
+  description = "Security group for ALB"
+  vpc_id      = aws_vpc.main[0].id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP from internet"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = local.tags
+}
+
+# ECS Security Group — restricted to ALB when enable_alb=true
 resource "aws_security_group" "mcp_server" {
   count       = var.stage == "prod" ? 1 : 0
   name        = "mcp-server-sg-${var.stage}"
   description = "Security group for MCP server"
-  vpc_id      = data.aws_vpc.default[0].id
+  vpc_id      = var.enable_alb ? aws_vpc.main[0].id : data.aws_vpc.default[0].id
 
-  ingress {
-    from_port   = 8000
-    to_port     = 8000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  dynamic "ingress" {
+    for_each = var.enable_alb ? [] : [1]
+    content {
+      from_port   = 8000
+      to_port     = 8000
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+
+  dynamic "ingress" {
+    for_each = var.enable_alb ? [1] : []
+    content {
+      from_port       = 8000
+      to_port         = 8000
+      protocol        = "tcp"
+      security_groups = [aws_security_group.alb[0].id]
+      description     = "MCP server from ALB only"
+    }
   }
 
   egress {
@@ -340,7 +470,7 @@ resource "aws_security_group" "mcp_server" {
 }
 
 data "aws_vpc" "default" {
-  count   = var.stage == "prod" ? 1 : 0
+  count   = var.stage == "prod" && !var.enable_alb ? 1 : 0
   default = true
 }
 
@@ -398,27 +528,124 @@ resource "aws_cloudwatch_log_group" "mcp_server" {
   tags = local.tags
 }
 
+# ALB and Target Group (when enable_alb=true)
+resource "aws_lb" "mcp" {
+  count              = var.enable_alb && var.stage == "prod" ? 1 : 0
+  name               = "mcp-alb-${var.stage}"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb[0].id]
+  subnets            = aws_subnet.public[*].id
+
+  tags = local.tags
+}
+
+resource "aws_lb_target_group" "mcp" {
+  count       = var.enable_alb && var.stage == "prod" ? 1 : 0
+  name        = "mcp-tg-${var.stage}"
+  port        = 8000
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.main[0].id
+
+  health_check {
+    path                = "/"
+    protocol            = "HTTP"
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+    matcher             = "200-499"
+  }
+
+  tags = local.tags
+}
+
+resource "aws_lb_listener" "mcp_http" {
+  count             = var.enable_alb && var.stage == "prod" ? 1 : 0
+  load_balancer_arn = aws_lb.mcp[0].arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.mcp[0].arn
+  }
+}
+
 resource "aws_ecs_service" "mcp_server" {
   count           = var.stage == "prod" ? 1 : 0
   name            = "mcp-server-service-${var.stage}"
   cluster         = aws_ecs_cluster.mcp[0].id
   task_definition = aws_ecs_task_definition.mcp_server[0].arn
-  desired_count   = 1
+  desired_count   = var.enable_alb ? 1 : 1
   launch_type     = "FARGATE"
 
+  dynamic "load_balancer" {
+    for_each = var.enable_alb ? [1] : []
+    content {
+      target_group_arn = aws_lb_target_group.mcp[0].arn
+      container_name   = "mcp-server"
+      container_port   = 8000
+    }
+  }
+
   network_configuration {
-    subnets          = data.aws_subnets.default[0].ids
+    subnets          = var.enable_alb ? aws_subnet.private[*].id : data.aws_subnets.default[0].ids
     security_groups  = [aws_security_group.mcp_server[0].id]
-    assign_public_ip = true
+    assign_public_ip = var.enable_alb ? false : true
   }
 
   tags = local.tags
 }
 
 data "aws_subnets" "default" {
-  count = var.stage == "prod" ? 1 : 0
+  count = var.stage == "prod" && !var.enable_alb ? 1 : 0
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.default[0].id]
+  }
+}
+
+# --- Autoscaling (when enable_alb=true) ---
+
+resource "aws_appautoscaling_target" "mcp" {
+  count              = var.enable_alb && var.stage == "prod" ? 1 : 0
+  max_capacity       = 4
+  min_capacity       = 1
+  resource_id        = "service/${aws_ecs_cluster.mcp[0].name}/${aws_ecs_service.mcp_server[0].name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "mcp_cpu" {
+  count              = var.enable_alb && var.stage == "prod" ? 1 : 0
+  name               = "mcp-cpu-scaling-${var.stage}"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.mcp[0].resource_id
+  scalable_dimension = aws_appautoscaling_target.mcp[0].scalable_dimension
+  service_namespace  = aws_appautoscaling_target.mcp[0].service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+    target_value = 50.0
+  }
+}
+
+resource "aws_appautoscaling_policy" "mcp_memory" {
+  count              = var.enable_alb && var.stage == "prod" ? 1 : 0
+  name               = "mcp-memory-scaling-${var.stage}"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.mcp[0].resource_id
+  scalable_dimension = aws_appautoscaling_target.mcp[0].scalable_dimension
+  service_namespace  = aws_appautoscaling_target.mcp[0].service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageMemoryUtilization"
+    }
+    target_value = 70.0
   }
 }
