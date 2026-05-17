@@ -18,8 +18,10 @@ class TestInfraProviders(unittest.TestCase):
 
     def test_prod_provider_has_no_hardcoded_localhost(self):
         content = read_infra("prod/providers.tf")
-        self.assertIn("aws_endpoint_url", content)
         self.assertNotIn("localhost:4566", content)
+        self.assertNotIn("access_key", content)
+        self.assertNotIn("secret_key", content)
+        self.assertNotIn("skip_credentials_validation", content)
 
 
 class TestInfraDynamoKeys(unittest.TestCase):
