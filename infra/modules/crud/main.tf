@@ -238,3 +238,169 @@ resource "aws_lambda_permission" "shopping_cart" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.crud_api.execution_arn}/*/*"
 }
+
+# --- ECS Fargate for MCP Server (Production only) ---
+
+resource "aws_ecr_repository" "mcp_server" {
+  count        = var.stage == "prod" ? 1 : 0
+  name         = "mcp-server-${var.stage}"
+  force_delete = true
+
+  tags = local.tags
+}
+
+resource "aws_ecs_cluster" "mcp" {
+  count = var.stage == "prod" ? 1 : 0
+  name  = "mcp-cluster-${var.stage}"
+
+  tags = local.tags
+}
+
+resource "aws_iam_role" "ecs_task_execution_role" {
+  count = var.stage == "prod" ? 1 : 0
+  name  = "ecs-task-execution-role-${var.stage}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
+  count      = var.stage == "prod" ? 1 : 0
+  role       = aws_iam_role.ecs_task_execution_role[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_role" "ecs_task_role" {
+  count = var.stage == "prod" ? 1 : 0
+  name  = "ecs-task-role-${var.stage}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = local.tags
+}
+
+resource "aws_security_group" "mcp_server" {
+  count       = var.stage == "prod" ? 1 : 0
+  name        = "mcp-server-sg-${var.stage}"
+  description = "Security group for MCP server"
+  vpc_id      = data.aws_vpc.default[0].id
+
+  ingress {
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = local.tags
+}
+
+data "aws_vpc" "default" {
+  count = var.stage == "prod" ? 1 : 0
+  default = true
+}
+
+resource "aws_ecs_task_definition" "mcp_server" {
+  count                  = var.stage == "prod" ? 1 : 0
+  family                 = "mcp-server-${var.stage}"
+  network_mode           = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                    = "256"
+  memory                 = "512"
+  execution_role_arn     = aws_iam_role.ecs_task_execution_role[0].arn
+  task_role_arn          = aws_iam_role.ecs_task_role[0].arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "mcp-server"
+      image     = "${aws_ecr_repository.mcp_server[0].repository_url}:latest"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 8000
+          hostPort      = 8000
+          protocol      = "tcp"
+        }
+      ]
+      environment = [
+        {
+          name  = "API_BASE_URL"
+          value = "https://${aws_apigatewayv2_api.crud_api.id}.execute-api.${var.aws_region}.amazonaws.com"
+        },
+        {
+          name  = "API_ID"
+          value = aws_apigatewayv2_api.crud_api.id
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/mcp-server-${var.stage}"
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "mcp-server"
+        }
+      }
+    }
+  ])
+
+  tags = local.tags
+}
+
+resource "aws_cloudwatch_log_group" "mcp_server" {
+  count             = var.stage == "prod" ? 1 : 0
+  name              = "/ecs/mcp-server-${var.stage}"
+  retention_in_days = 30
+
+  tags = local.tags
+}
+
+resource "aws_ecs_service" "mcp_server" {
+  count           = var.stage == "prod" ? 1 : 0
+  name            = "mcp-server-service-${var.stage}"
+  cluster         = aws_ecs_cluster.mcp[0].id
+  task_definition = aws_ecs_task_definition.mcp_server[0].arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets         = data.aws_subnets.default[0].ids
+    security_groups = [aws_security_group.mcp_server[0].id]
+    assign_public_ip = true
+  }
+
+  tags = local.tags
+}
+
+data "aws_subnets" "default" {
+  count = var.stage == "prod" ? 1 : 0
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default[0].id]
+  }
+}

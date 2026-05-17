@@ -5,7 +5,7 @@
 # all three handlers, and each handler imports its own DAO.
 
 locals {
-  backend_root = "${path.module}/../../backend"
+  backend_root = "${path.module}/../../api"
 
   # Shared sources included in every Lambda zip
   lambda_shared = [

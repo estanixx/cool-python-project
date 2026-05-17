@@ -167,11 +167,4 @@ def shopping_cart_delete(cart_id: str) -> CallToolResult:
 
 
 if __name__ == "__main__":
-    mcp.run(
-        transport="streamable-http",
-        host="0.0.0.0",
-        port=8000,
-        streamable_http_path="/mcp",
-        json_response=True,
-        stateless_http=True,
-    )
+    mcp.run()

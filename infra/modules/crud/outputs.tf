@@ -35,6 +35,16 @@ output "api_endpoint" {
   value       = aws_apigatewayv2_stage.default.invoke_url
 }
 
+output "mcp_ecr_repository_url" {
+  description = "ECR repository URL for MCP server image."
+  value       = var.stage == "prod" ? aws_ecr_repository.mcp_server[0].repository_url : null
+}
+
+output "mcp_service_endpoint" {
+  description = "MCP server service endpoint (if deployed)."
+  value       = var.stage == "prod" ? "http://${aws_ecs_service.mcp_server[0].id}" : null
+}
+
 output "aws_endpoint_url" {
   description = "Endpoint override in use (if any)."
   value       = var.aws_endpoint_url
