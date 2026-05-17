@@ -29,9 +29,9 @@ variable "lambda_env_endpoint_url" {
 variable "table_names" {
   description = "DynamoDB table names for Dictionary, Product, ShoppingCart."
   type = object({
-    dictionary     = string
-    product        = string
-    shopping_cart  = string
+    dictionary    = string
+    product       = string
+    shopping_cart = string
   })
 
   validation {

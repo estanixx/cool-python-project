@@ -340,19 +340,19 @@ resource "aws_security_group" "mcp_server" {
 }
 
 data "aws_vpc" "default" {
-  count = var.stage == "prod" ? 1 : 0
+  count   = var.stage == "prod" ? 1 : 0
   default = true
 }
 
 resource "aws_ecs_task_definition" "mcp_server" {
-  count                  = var.stage == "prod" ? 1 : 0
-  family                 = "mcp-server-${var.stage}"
-  network_mode           = "awsvpc"
+  count                    = var.stage == "prod" ? 1 : 0
+  family                   = "mcp-server-${var.stage}"
+  network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                    = "256"
-  memory                 = "512"
-  execution_role_arn     = aws_iam_role.ecs_task_execution_role[0].arn
-  task_role_arn          = aws_iam_role.ecs_task_role[0].arn
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role[0].arn
+  task_role_arn            = aws_iam_role.ecs_task_role[0].arn
 
   container_definitions = jsonencode([
     {
@@ -407,8 +407,8 @@ resource "aws_ecs_service" "mcp_server" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = data.aws_subnets.default[0].ids
-    security_groups = [aws_security_group.mcp_server[0].id]
+    subnets          = data.aws_subnets.default[0].ids
+    security_groups  = [aws_security_group.mcp_server[0].id]
     assign_public_ip = true
   }
 

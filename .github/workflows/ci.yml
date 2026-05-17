@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r api/requirements.txt
+          pip install -r mcp-server/requirements.txt
+
+      - name: Run unit tests
+        run: python -m unittest discover -s api/tests -p "test_*.py" -v
+
+  terraform:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive infra/
+
+      - name: Terraform Validate (test)
+        run: |
+          cd infra/test
+          terraform init -backend=false
+          terraform validate
+
+      - name: Terraform Validate (prod)
+        run: |
+          cd infra/prod
+          terraform init -backend=false
+          terraform validate
