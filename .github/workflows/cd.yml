@@ -1,0 +1,106 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_ROLE_ARN: ${{ vars.ROLE_ARN }}
+  ECR_REPOSITORY: mcp-server-prod
+  AWS_REGION: us-east-1
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r api/requirements.txt
+          pip install -r mcp-server/requirements.txt
+
+      - name: Run unit tests
+        run: python -m unittest discover -s api/tests -p "test_*.py" -v
+
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      code_changed: ${{ steps.filter.outputs.code_changed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code_changed:
+              - 'mcp-server/**'
+              - 'api/**'
+
+  build-and-push:
+    name: Build & Push to ECR
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.code_changed == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest mcp-server/
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+  deploy:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [test, detect-changes]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify OIDC Auth
+        run: aws sts get-caller-identity
+
+      - name: Terraform Init
+        working-directory: infra/prod
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infra/prod
+        run: terraform plan -no-color -input=false
+
+      - name: Terraform Apply
+        working-directory: infra/prod
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve -input=false

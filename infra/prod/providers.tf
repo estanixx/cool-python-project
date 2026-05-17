@@ -1,15 +1,12 @@
-provider "aws" {
-  access_key                  = "test"
-  secret_key                  = "test"
-  region                      = var.aws_region
-  skip_credentials_validation = true
-  skip_metadata_api_check     = true
-  skip_requesting_account_id  = true
-  dynamic "endpoints" {
-    for_each = var.aws_endpoint_url != "" ? [var.aws_endpoint_url] : []
-    content {
-      dynamodb = endpoints.value
-      lambda   = endpoints.value
-    }
+terraform {
+  backend "s3" {
+    bucket         = "central-tfstate-estanix-871696174477"
+    key            = "cool-python-project"
+    region         = "us-east-1"
+    use_lockfile   = true
   }
+}
+
+provider "aws" {
+  region = var.aws_region
 }

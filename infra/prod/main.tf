@@ -82,6 +82,7 @@ module "crud" {
   stage            = var.stage
   aws_region       = var.aws_region
   aws_endpoint_url = var.aws_endpoint_url
+  enable_alb       = true
 
   table_names = {
     dictionary    = "Dictionary"
