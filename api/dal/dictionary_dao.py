@@ -73,6 +73,14 @@ class DictionaryDAO:
             raise ValidationError("word is required")
         return word.capitalize()
 
+    def list_all(self) -> list:
+        """Return all dictionary entries."""
+        try:
+            response = self.table.scan()
+            return response.get("Items", [])
+        except Exception as exc:  # pragma: no cover
+            raise DynamoError("failed to list dictionary entries") from exc
+
     def _table_name(self) -> str:
         return os.getenv("DYNAMODB_TABLE_DICTIONARY", "Dictionary")
 

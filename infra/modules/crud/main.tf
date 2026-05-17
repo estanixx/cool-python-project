@@ -202,15 +202,33 @@ resource "aws_apigatewayv2_route" "dictionary" {
   target    = "integrations/${aws_apigatewayv2_integration.dictionary.id}"
 }
 
+resource "aws_apigatewayv2_route" "dictionary_item" {
+  api_id    = aws_apigatewayv2_api.crud_api.id
+  route_key = "ANY /dictionary/{word}"
+  target    = "integrations/${aws_apigatewayv2_integration.dictionary.id}"
+}
+
 resource "aws_apigatewayv2_route" "product" {
   api_id    = aws_apigatewayv2_api.crud_api.id
   route_key = "ANY /product"
   target    = "integrations/${aws_apigatewayv2_integration.product.id}"
 }
 
+resource "aws_apigatewayv2_route" "product_item" {
+  api_id    = aws_apigatewayv2_api.crud_api.id
+  route_key = "ANY /product/{product_id}"
+  target    = "integrations/${aws_apigatewayv2_integration.product.id}"
+}
+
 resource "aws_apigatewayv2_route" "shopping_cart" {
   api_id    = aws_apigatewayv2_api.crud_api.id
   route_key = "ANY /shopping-cart"
+  target    = "integrations/${aws_apigatewayv2_integration.shopping_cart.id}"
+}
+
+resource "aws_apigatewayv2_route" "shopping_cart_item" {
+  api_id    = aws_apigatewayv2_api.crud_api.id
+  route_key = "ANY /shopping-cart/{cart_id}"
   target    = "integrations/${aws_apigatewayv2_integration.shopping_cart.id}"
 }
 

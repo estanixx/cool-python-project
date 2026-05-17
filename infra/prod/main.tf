@@ -18,6 +18,7 @@ locals {
     { content = file("${local.backend_root}/dal/product_dao.py"), filename = "api/dal/product_dao.py" },
     { content = file("${local.backend_root}/dal/shopping_cart_dao.py"), filename = "api/dal/shopping_cart_dao.py" },
     { content = file("${local.backend_root}/handlers/__init__.py"), filename = "api/handlers/__init__.py" },
+    { content = file("${local.backend_root}/handlers/utils.py"), filename = "api/handlers/utils.py" },
   ]
 }
 

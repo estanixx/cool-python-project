@@ -35,6 +35,11 @@ output "api_endpoint" {
   value       = aws_apigatewayv2_stage.default.invoke_url
 }
 
+output "api_id" {
+  description = "API Gateway ID."
+  value       = aws_apigatewayv2_api.crud_api.id
+}
+
 output "mcp_ecr_repository_url" {
   description = "ECR repository URL for MCP server image."
   value       = var.stage == "prod" ? aws_ecr_repository.mcp_server[0].repository_url : null

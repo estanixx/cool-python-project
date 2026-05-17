@@ -21,6 +21,9 @@ def handler(event, context):  # pylint: disable=unused-argument
         if operation == "delete":
             item = dao.delete(payload.get("Word") or payload.get("word"))
             return _response(200, item)
+        if operation == "list":
+            items = dao.list_all()
+            return _response(200, {"entries": items})
         raise ValidationError("unsupported operation")
     except ValidationError as exc:
         return _error(400, str(exc))

@@ -17,6 +17,9 @@ locals {
     { content = file("${local.backend_root}/dal/product_dao.py"), filename = "api/dal/product_dao.py" },
     { content = file("${local.backend_root}/dal/shopping_cart_dao.py"), filename = "api/dal/shopping_cart_dao.py" },
     { content = file("${local.backend_root}/handlers/__init__.py"), filename = "api/handlers/__init__.py" },
+    { content = file("${local.backend_root}/handlers/utils.py"), filename = "api/handlers/utils.py" },
+    { content = file("${local.backend_root}/utils/__init__.py"), filename = "api/utils/__init__.py" },
+    { content = file("${local.backend_root}/utils/shopping.py"), filename = "api/utils/shopping.py" },
   ]
 }
 
@@ -74,6 +77,41 @@ data "archive_file" "shopping_cart" {
   }
 }
 
+data "archive_file" "word_trick" {
+  type        = "zip"
+  output_path = "${path.module}/.terraform/artifacts/word_trick.zip"
+
+  source {
+    content  = file("${local.backend_root}/handlers/word_trick_handler.py")
+    filename = "api/handlers/word_trick_handler.py"
+  }
+
+  source {
+    content  = file("${local.backend_root}/handlers/utils.py")
+    filename = "api/handlers/utils.py"
+  }
+
+  source {
+    content  = file("${local.backend_root}/utils/__init__.py")
+    filename = "api/utils/__init__.py"
+  }
+
+  source {
+    content  = file("${local.backend_root}/utils/word_trick.py")
+    filename = "api/utils/word_trick.py"
+  }
+
+  source {
+    content  = file("${local.backend_root}/utils/dictionary.py")
+    filename = "api/utils/dictionary.py"
+  }
+
+  source {
+    content  = file("${local.backend_root}/utils/shopping.py")
+    filename = "api/utils/shopping.py"
+  }
+}
+
 module "crud" {
   source = "../modules/crud"
 
@@ -109,4 +147,48 @@ module "crud" {
 
   # Lambda containers reach Floci via Docker network hostname
   lambda_env_endpoint_url = "http://floci:4566"
+}
+
+# Word Trick Lambda (standalone, no DynamoDB needed)
+resource "aws_lambda_function" "word_trick" {
+  function_name    = "word-trick-${var.stage}"
+  role             = module.crud.lambda_role_arn
+  handler          = "api.handlers.word_trick_handler.handler"
+  runtime          = "python3.11"
+  timeout          = 30
+  filename         = data.archive_file.word_trick.output_path
+  source_code_hash = filebase64sha256(data.archive_file.word_trick.output_path)
+
+  environment {
+    variables = {
+      STAGE            = var.stage
+      AWS_ENDPOINT_URL = "http://floci:4566"
+    }
+  }
+
+  tags = {
+    Service = "serverless-crud-dynamodb-mcp"
+    Stage   = var.stage
+  }
+}
+
+resource "aws_apigatewayv2_integration" "word_trick" {
+  api_id             = module.crud.api_id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = aws_lambda_function.word_trick.invoke_arn
+  integration_method = "POST"
+}
+
+resource "aws_apigatewayv2_route" "word_trick" {
+  api_id    = module.crud.api_id
+  route_key = "ANY /word-trick"
+  target    = "integrations/${aws_apigatewayv2_integration.word_trick.id}"
+}
+
+resource "aws_lambda_permission" "word_trick" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.word_trick.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "arn:aws:execute-api:us-east-1:000000000000:${module.crud.api_id}/*/*"
 }

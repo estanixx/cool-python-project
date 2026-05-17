@@ -30,3 +30,44 @@ class TestProductIntegration(unittest.TestCase):
         with self.assertRaises(NotFoundError) as context:
             self.dao.read("550e8400-e29b-41d4-a716-446655440000")
         self.assertIn("not found", str(context.exception))
+
+    def test_list_returns_all_products(self):
+        self.dao.create("Apple", 1.5)
+        self.dao.create("Banana", 0.75)
+        self.dao.create("Cherry", 3.0)
+
+        results = self.dao.list()
+        self.assertEqual(len(results), 3)
+        names = {r["name"] for r in results}
+        self.assertIn("Apple", names)
+        self.assertIn("Banana", names)
+        self.assertIn("Cherry", names)
+
+    def test_list_empty_when_no_products(self):
+        results = self.dao.list()
+        self.assertEqual(results, [])
+
+    def test_search_matches_substring(self):
+        self.dao.create("Wireless Mouse", 29.99)
+        self.dao.create("USB Keyboard", 49.99)
+        self.dao.create("Wireless Headphones", 79.99)
+
+        results = self.dao.search("wireless")
+        self.assertEqual(len(results), 2)
+        names = {r["name"] for r in results}
+        self.assertIn("Wireless Mouse", names)
+        self.assertIn("Wireless Headphones", names)
+
+    def test_search_case_insensitive(self):
+        self.dao.create("Wireless Mouse", 29.99)
+
+        results = self.dao.search("WIRELESS")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["name"], "Wireless Mouse")
+
+    def test_search_returns_empty_on_no_match(self):
+        self.dao.create("Mouse", 29.99)
+        self.dao.create("Keyboard", 49.99)
+
+        results = self.dao.search("monitor")
+        self.assertEqual(results, [])

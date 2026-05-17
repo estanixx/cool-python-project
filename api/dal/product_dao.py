@@ -45,7 +45,7 @@ class ProductDAO:
             attr_names["#nm"] = "name"
         if price is not None:
             updates.append("#pr = :price")
-            values[":price"] = price
+            values[":price"] = Decimal(str(price))
             attr_names["#pr"] = "price"
         if not updates:
             raise ValidationError("no updates provided")
@@ -95,6 +95,32 @@ class ProductDAO:
 
     def _table_name(self) -> str:
         return os.getenv("DYNAMODB_TABLE_PRODUCT", "Product")
+
+    def list(self) -> list:
+        """Return all products via DynamoDB Scan."""
+        try:
+            response = self.table.scan()
+            return response.get("Items", [])
+        except Exception as exc:  # pragma: no cover
+            raise DynamoError("failed to list products") from exc
+
+    def search(self, term: str) -> list:
+        """Return products where name contains term (case-insensitive).
+        Uses Scan with client-side filtering since DynamoDB contains()
+        is case-sensitive.
+        """
+        if not term:
+            raise ValidationError("search term is required")
+        try:
+            response = self.table.scan()
+            items = response.get("Items", [])
+            normalized_term = term.lower()
+            return [
+                item for item in items
+                if normalized_term in item.get("name", "").lower()
+            ]
+        except Exception as exc:  # pragma: no cover
+            raise DynamoError("failed to search products") from exc
 
 
 def _is_condition_failure(exc: Exception) -> bool:
