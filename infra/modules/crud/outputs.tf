@@ -86,3 +86,8 @@ output "aws_endpoint_url" {
   description = "Endpoint override in use (if any)."
   value       = var.aws_endpoint_url
 }
+
+output "dashboard_arn" {
+  description = "CloudWatch dashboard ARN (prod only)."
+  value       = var.stage == "prod" ? aws_cloudwatch_dashboard.main[0].arn : null
+}
