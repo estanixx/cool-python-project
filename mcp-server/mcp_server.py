@@ -295,12 +295,13 @@ if __name__ == "__main__":
     async def health(request):
         return JSONResponse({"status": "ok"})
 
-    sse_app = mcp.sse_app()
+    # Use streamable-http transport (no host header validation, works behind ALB)
+    streamable_app = mcp.streamable_http_app()
 
     app = Starlette(
         routes=[
             Route("/health", health),
-            Mount("/", app=sse_app),
+            Mount("/", app=streamable_app),
         ]
     )
     uvicorn.run(app, host="0.0.0.0", port=8000)
