@@ -26,11 +26,10 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           queries: security-extended
-          config: |
-            paths-ignore: |
-              test/
-              vendor/
-              node_modules/
+          paths-ignore: |
+            test/
+            vendor/
+            node_modules/
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
