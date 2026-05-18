@@ -49,6 +49,7 @@ jobs:
             code_changed:
               - 'mcp-server/**'
               - 'api/**'
+              - '.github/workflows/*.yml'
 
   build-and-push:
     name: Build & Push to ECR
