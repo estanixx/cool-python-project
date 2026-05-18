@@ -1,6 +1,6 @@
 """MCP server exposing CRUD tools via HTTP API calls.
 
-Transport: SSE (Server-Sent Events) for remote MCP clients.
+Transport: Streamable HTTP (works behind ALB, no host validation).
 """
 import json
 import os
@@ -18,6 +18,7 @@ mcp = FastMCP(
     stateless_http=True,
     json_response=True,
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    streamable_http_path="/",
 )
 
 # Configuration: API base URL and API ID (from Floci/AWS)
@@ -31,8 +32,6 @@ if API_ID:
 else:
     # Fallback to direct Lambda invocation (for local dev without API Gateway)
     API_ENDPOINT = f"{API_BASE_URL}/2015-03-31/functions"
-
-mcp = FastMCP("serverless-crud", stateless_http=True, json_response=True)
 
 
 def _call_api(
@@ -299,18 +298,18 @@ if __name__ == "__main__":
     import uvicorn
     from starlette.applications import Starlette
     from starlette.responses import JSONResponse
-    from starlette.routing import Route
+    from starlette.routing import Mount, Route
 
     # Health check endpoint for ALB
     async def health(request):
         return JSONResponse({"status": "ok"})
 
-    sse_app = mcp.sse_app()
+    streamable_app = mcp.streamable_http_app()
 
     app = Starlette(
         routes=[
             Route("/health", health),
-            *sse_app.routes,
+            Mount("/", app=streamable_app),
         ]
     )
     uvicorn.run(app, host="0.0.0.0", port=8000)
