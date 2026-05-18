@@ -38,6 +38,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Next.js website lib (not Python lib)
+!website/lib/
+
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -56,6 +59,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!website/lib/
 lib64/
 parts/
 sdist/
