@@ -173,6 +173,7 @@ class TestCISonarQubeJob(unittest.TestCase):
     def test_sonarqube_conditional_on_token(self):
         content = read_workflow("ci.yml")
         self.assertIn("SONAR_TOKEN", content)
+        self.assertIn("if: env.SONAR_TOKEN != ''", content)
 
     def test_sonarqube_checkout_fetch_depth_zero(self):
         content = read_workflow("ci.yml")
@@ -184,37 +185,40 @@ class TestCISonarQubeJob(unittest.TestCase):
         self.assertIn("v2", content)
 
 
-class TestCITfsecStep(unittest.TestCase):
-    """CI pipeline tfsec step — spec scenarios: scans infra, excludes modules, uploads SARIF."""
+class TestCITrivyStep(unittest.TestCase):
+    """CI pipeline Trivy step — spec scenarios: scans infra, outputs SARIF, uploads results."""
 
-    def test_ci_has_tfsec_step(self):
+    def test_ci_has_trivy_step(self):
         content = read_workflow("ci.yml")
-        self.assertIn("tfsec", content)
+        self.assertIn("Trivy", content)
 
-    def test_tfsec_uses_aquasecurity_action(self):
+    def test_trivy_uses_aquasecurity_action(self):
         content = read_workflow("ci.yml")
-        self.assertIn("aquasecurity/tfsec-action", content)
+        self.assertIn("aquasecurity/trivy-action", content)
 
-    def test_tfsec_working_directory_is_infra(self):
+    def test_trivy_scan_type_config(self):
         content = read_workflow("ci.yml")
-        self.assertIn("working_directory: infra/", content)
+        self.assertIn("scan-type: config", content)
 
-    def test_tfsec_excludes_downloaded_modules(self):
+    def test_trivy_scan_ref_infra(self):
         content = read_workflow("ci.yml")
-        self.assertIn("--exclude-downloaded-modules", content)
+        self.assertIn("scan-ref: infra/", content)
 
-    def test_tfsec_outputs_sarif_format(self):
+    def test_trivy_outputs_sarif_format(self):
         content = read_workflow("ci.yml")
-        self.assertIn("--format sarif", content)
-        self.assertIn("tfsec-results.sarif", content)
+        self.assertIn("format: sarif", content)
+        self.assertIn("output: trivy-results.sarif", content)
 
-    def test_ci_has_sarif_upload_step(self):
+    def test_trivy_exit_code_on_high_severity(self):
+        content = read_workflow("ci.yml")
+        self.assertIn("exit-code: \"1\"", content)
+        self.assertIn("severity: CRITICAL,HIGH", content)
+
+    def test_trivy_uploads_sarif_results(self):
         content = read_workflow("ci.yml")
         self.assertIn("upload-sarif", content)
-
-    def test_sarif_upload_uses_always_condition(self):
-        content = read_workflow("ci.yml")
         self.assertIn("if: always()", content)
+        self.assertIn("sarif_file: trivy-results.sarif", content)
 
 
 class TestCIExistingJobsUnchanged(unittest.TestCase):
@@ -246,3 +250,36 @@ class TestCIExistingJobsUnchanged(unittest.TestCase):
         content = read_workflow("ci.yml")
         self.assertIn("Terraform Validate (prod)", content)
         self.assertIn("cd infra/prod", content)
+
+
+class TestTrivyIgnoreFile(unittest.TestCase):
+    """Trivy ignore file — spec scenarios: file exists and has required suppressions."""
+
+    def test_trivyignore_exists(self):
+        content = read_root_file(".trivyignore")
+        self.assertIn("Trivy Ignore", content)
+
+    def test_trivyignore_contains_required_suppressions(self):
+        content = read_root_file(".trivyignore")
+        required_ids = [
+            "AVD-AWS-0104",
+            "AVD-AWS-0105",
+            "AVD-AWS-0106",
+            "AVD-AWS-0053",
+            "AVD-AWS-0051",
+            "AVD-AWS-0066",
+            "AVD-AWS-0024",
+            "AVD-AWS-0033",
+            "AVD-AWS-0017",
+        ]
+        for rule_id in required_ids:
+            with self.subTest(rule_id=rule_id):
+                self.assertIn(rule_id, content)
+
+
+class TestSonarOrganizationProperty(unittest.TestCase):
+    """SonarQube properties — spec scenario: sonar.organization exists."""
+
+    def test_sonar_organization_exists(self):
+        content = read_root_file("sonar-project.properties")
+        self.assertIn("sonar.organization=", content)
