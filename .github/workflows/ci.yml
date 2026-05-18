@@ -50,6 +50,42 @@ jobs:
           terraform init -backend=false
           terraform validate
 
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: infra/
+          args: --exclude-downloaded-modules --format sarif --out tfsec-results.sarif
+
+      - name: Upload tfsec results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: tfsec-results.sarif
+
+  sonarqube:
+    name: SonarQube Analysis
+    needs: test
+    runs-on: ubuntu-latest
+    if: ${{ secrets.SONAR_TOKEN != '' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r api/requirements.txt
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   openapi-validate:
     name: OpenAPI Spec Validation
     runs-on: ubuntu-latest
