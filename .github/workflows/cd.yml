@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   AWS_ROLE_ARN: ${{ vars.ROLE_ARN }}
   ECR_REPOSITORY: mcp-server-prod
