@@ -66,7 +66,9 @@ jobs:
     name: SonarQube Analysis
     needs: test
     runs-on: ubuntu-latest
-    if: ${{ secrets.SONAR_TOKEN }}
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    if: ${{ env.SONAR_TOKEN != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
