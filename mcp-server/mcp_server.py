@@ -25,12 +25,12 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:4566")
 API_ID = os.getenv("API_ID", "")
 
 # Resolve full API Gateway URL
-if API_ID:
-    # Floci API Gateway v2 format
-    API_ENDPOINT = f"{API_BASE_URL}/restapis/{API_ID}/_user_request_"
+if "execute-api" in API_BASE_URL:
+    # Real AWS API Gateway v2 — base URL is the invoke endpoint
+    API_ENDPOINT = API_BASE_URL.rstrip("/")
 else:
-    # Fallback to direct Lambda invocation (for local dev without API Gateway)
-    API_ENDPOINT = f"{API_BASE_URL}/2015-03-31/functions"
+    # Floci/LocalStack format
+    API_ENDPOINT = f"{API_BASE_URL}/restapis/{API_ID}/_user_request_"
 
 
 def _call_api(
@@ -41,59 +41,23 @@ def _call_api(
 ) -> CallToolResult:
     """Make an HTTP request to the API and return an MCP tool result."""
     try:
-        # If using API Gateway, send standard HTTP request
-        if API_ID:
-            url = f"{API_ENDPOINT}{path}"
-            if query_params:
-                qs = "&".join(f"{k}={v}" for k, v in query_params.items())
-                url = f"{url}?{qs}"
-            response = httpx.request(
-                method=method,
-                url=url,
-                json=body,
-                headers={"Content-Type": "application/json"},
-                timeout=10.0,
-            )
-            status_code = response.status_code
-            try:
-                payload = response.json()
-            except json.JSONDecodeError:
-                payload = {"raw": response.text}
-        else:
-            # Direct Lambda invocation (legacy format)
-            path_parts = path.strip("/").split("/")
-            resource = path_parts[0]
-
-            path_params = {}
-            if len(path_parts) > 1:
-                if resource == "dictionary":
-                    path_params["word"] = path_parts[1]
-                elif resource == "product":
-                    path_params["product_id"] = path_parts[1]
-                elif resource == "shopping-cart":
-                    path_params["cart_id"] = path_parts[1]
-
-            url = f"{API_ENDPOINT}/{resource}-local/invocations"
-
-            operation_map = {"POST": "create", "GET": "read", "PUT": "update", "DELETE": "delete"}
-            event_payload = {**(body or {}), **path_params}
-            op = (body or {}).get("operation")
-            if op is None and query_params and "operation" in query_params:
-                op = query_params["operation"]
-            if op is None:
-                op = operation_map.get(method, "read")
-            event = {
-                "operation": op,
-                "payload": event_payload,
-            }
-            response = httpx.post(
-                url,
-                json=event,
-                headers={"Content-Type": "application/json"},
-                timeout=10.0,
-            )
-            status_code = response.status_code
+        # API Gateway (real AWS or Floci) — send standard HTTP request
+        url = f"{API_ENDPOINT}{path}"
+        if query_params:
+            qs = "&".join(f"{k}={v}" for k, v in query_params.items())
+            url = f"{url}?{qs}"
+        response = httpx.request(
+            method=method,
+            url=url,
+            json=body,
+            headers={"Content-Type": "application/json"},
+            timeout=10.0,
+        )
+        status_code = response.status_code
+        try:
             payload = response.json()
+        except json.JSONDecodeError:
+            payload = {"raw": response.text}
 
         if status_code >= 400:
             message = payload.get("error", "api error")
