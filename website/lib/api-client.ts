@@ -1,0 +1,54 @@
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+/**
+ * Centralized API client for API Gateway v2 Lambda proxy integrations.
+ *
+ * API Gateway v2 wraps Lambda responses in an envelope:
+ *   { statusCode: number, body: string }
+ * where `body` is a JSON-encoded string requiring a second parse.
+ *
+ * @template T Expected response type (after unwrapping the envelope)
+ * @param path API path (e.g. "/dictionary", "/product")
+ * @param options Optional fetch options (method, body, headers)
+ * @returns Parsed response body as type T
+ * @throws Error on non-2xx status or malformed body
+ */
+export async function api<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  const url = `${API_BASE_URL}${path}`;
+
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    ...options,
+  });
+
+  const envelope: { statusCode: number; body: unknown } = await res.json();
+
+  // API Gateway v2: body is a JSON string that needs a second parse
+  let body: unknown;
+  if (typeof envelope.body === "string") {
+    try {
+      body = JSON.parse(envelope.body);
+    } catch (parseError) {
+      throw new Error(
+        `Failed to parse API response body: ${envelope.body}`,
+      );
+    }
+  } else {
+    body = envelope.body;
+  }
+
+  if (!res.ok || envelope.statusCode >= 400) {
+    const errorBody = body as { error?: string };
+    throw new Error(
+      errorBody?.error || `API error: ${envelope.statusCode}`,
+    );
+  }
+
+  return body as T;
+}
