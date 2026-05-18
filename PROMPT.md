@@ -1,58 +1,56 @@
-You are an expert Cloud Software Architect and Senior Python Engineer. Your task is to implement a clean, decoupled serverless backend application adhering strictly to Software Design Document (SDD) and Test-Driven Development (TDD) best practices. 
+Implement a complete SDD process PER BRANCH in the order specified below for performing the following changes. Remember to use engram to store the output of all of your process.
+Dont push refs to main unless i tell you so.
+BRANCH: main
+1. Terraform format is returning status 3 
+    Run terraform fmt -check -recursive infra/
+    terraform fmt -check -recursive infra/
+    shell: /usr/bin/bash -e {0}
+    env:
+        TERRAFORM_CLI_PATH: /home/runner/work/_temp/82d25845-0e98-4068-a745-64185730f081
+    infra/modules/crud/main.tf
+    Error: Terraform exited with code 3.
+    Error: Process completed with exit code 1.
 
-### 1. Project Context & Current Layout
-We have an existing codebase with core utilities located in `backend/utils/`. The root directories are structured under `infra/` (for Terraform) and `backend/` (for Python application logic).
-The existing utilities include:
-1. A Dictionary class that stores and retrieves words and definitions.
-2. A Product class and a ShoppingCart class (a cart holds multiple products).
-3. A Word Trick utility function.
-Respective unit tests for these utilities already exist.
+2. Look at this functionalities, there are still bugs
+✅ Funcionales (14/16)
+Herramienta	Estado	Detalle
+product_create	✅ OK	Crea productos correctamente
+product_read	✅ OK	Lee producto por ID
+product_update	✅ OK	Actualiza nombre y precio
+product_delete	✅ OK	Elimina producto
+product_list	✅ OK	Lista todos los productos
+product_search	✅ OK	Búsqueda por nombre funciona
+dictionary_create	✅ OK	Crea entradas
+dictionary_read	✅ OK	Lee entrada por palabra
+dictionary_update	✅ OK	Actualiza definición
+dictionary_delete	✅ OK	Elimina entrada
+dictionary_list	✅ OK	Lista todas las entradas
+shopping_cart_create	✅ OK	Crea carrito vacío
+shopping_cart_read	✅ OK	Lee carrito
+shopping_cart_update	✅ OK	Actualiza productos del carrito
+shopping_cart_remove_product	✅ OK	Elimina producto del carrito
+shopping_cart_delete	✅ OK	Elimina carrito
+❌ Con bugs (2/16)
+Herramienta	Estado	Bug
+word_trick	❌ FAIL	Siempre devuelve api error
+shopping_cart_add_product	❌ BUG	Devuelve carrito con productos vacíos []
+shopping_cart_get_total	❌ BUG	Devuelve el carrito con productos vacíos en vez del total
 
-### 2. Objective
-Build Python AWS Lambda functions that provide CRUD endpoints interacting with these entities. The data must be backed by Amazon DynamoDB. The entire local stack must deploy and test against **Floci** (running locally on `http://localhost:4566`), with seamless configurations to deploy to live **AWS** in production. Finally, expose these operations as a Model Context Protocol (MCP) server.
-
----
-
-### 3. Technical Specifications
-
-#### A. Architecture & Directory Rules
-Do not write monolithic handlers. Split the backend using a clean, layered architecture:
-*   `backend/utils/`: (Existing) Core business logic.
-*   `backend/dal/`: Data Access Layer / Data Access Objects (DAOs) to isolate all DynamoDB `boto3` interactions. Write a unified database client that checks for an `AWS_ENDPOINT_URL` or `STAGE=local` env variable to route traffic to Floci (port 4566) or native AWS.
-*   `backend/handlers/`: Clean Lambda functions that handle API Gateway JSON payloads, delegate database queries to the DAOs, and return formatted responses.
-*   `infra/`: Infrastructure as Code directory.
-
-#### B. DynamoDB Schema Map
-*   **Dictionary Table:** Partition Key = `Word` (String) | Attribute = `Definition` (String)
-*   **Product Table:** Partition Key = `uuid` (String) | Attributes = `name` (String), `price` (Number), `img` (String)
-*   **ShoppingCart Table:** Partition Key = `UUID` (String) | Attribute = `product_ids` (List of Strings). *Crucial requirement:* Store ONLY product IDs in the shopping cart table, not full product objects.
-
----
-
-### 4. Step-by-Step Implementation Required
-
-#### Step 1: Software Design Document (SDD)
-Generate a clean technical blueprint defining the module interactions, structural flow, and error-handling strategies. 
-
-#### Step 2: Infrastructure as Code (`infra/` folder)
-Write modular Terraform configurations using a `stage` variable (defaulting to `local`).
-*   Configure the AWS provider block to dynamically route endpoint overrides to `http://localhost:4566` if `var.stage == "local"` to support Floci.
-*   Define the 3 DynamoDB tables matching the schema map.
-*   Define the Lambda resources and their respective code zip sources.
-*   Write explicit IAM Execution Roles and Policies granting minimum-viable CRUD permissions to these specific DynamoDB tables.
-
-#### Step 3: Layered Backend Implementation (`backend/` folder)
-*   Implement the `db_client.py` engine mapping to Floci or live AWS.
-*   Write individual DAOs for Dictionary, Product, and ShoppingCart operations.
-*   Write the Lambda handler entry points ensuring clean JSON serialization and structured status responses.
-
-#### Step 4: TDD Integration Testing Suite (`backend/tests/`)
-*   Create a global `conftest.py` setting up the local test environment variables mapping to Floci.
-*   Write comprehensive integration tests that execute CRUD actions against the live local Floci DynamoDB tables, asserting data parity and performing routine test state teardown.
-
-#### Step 5: Convert to an MCP Server
-*   Implement a separate Python entry point (`mcp_server.py`) using the official `mcp` SDK.
-*   Wrap your developed DynamoDB DAOs as **MCP Tools** with descriptive metadata schemas so LLM agents know exactly when and how to invoke CRUD operations for the dictionary, products, and shopping carts.
-*   Configure an SSE (Server-Sent Events) or HTTP-compatible transport layer wrapper matching standard MCP specs.
-
-Provide the complete file implementations, fully commented, and structurally optimized for maximum maintainability.
+3. Create swagger api for apigw api
+BRANCH: ci/security
+4. Use CodeQL and Dependabot from github for security
+5. Use SonarQube 
+BRANCH: feat/website-and-deployment
+6. Create an application website using nextjs, tailwindcss and shadcnui for ui components using the api endpoints.
+    main page: three buttons in the middle of the screen, minimalistic, white background and the buttons are outlined black.
+    button 1: Days Dictionary below a book icon
+    button 2: Says shopping below shopping cart icon
+    button 3: Says word trick below letter icon
+    Each button leads to a different path.
+    Dictionary: Shows a list of definitions, Can store definitions, and lookup for definitions
+    Shopping cart: Shows a list of products with their price (an let you create products in the upper part), and products have an icon of adding to cart, in the bottom there is a "Create cart button" and when clicked, it creates the cart and shows a modal with all the products, their price, and the total price (specify that it includes taxes)
+    Word Trick: Single input, when click in word trick button on the right of the input, below it shows the output of the operation.
+7. Deploy in amplify
+BRANCH: feat/obervability
+8. Create a cloudwatch dashboard in the terraform file.
+    The dashboard should have the following metrics, MCP Calls, MCP Errors, API Calls, API Errors, Website Visitors, propose more meaningful metrics.

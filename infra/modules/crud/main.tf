@@ -196,26 +196,26 @@ resource "aws_apigatewayv2_stage" "default" {
 }
 
 resource "aws_apigatewayv2_integration" "dictionary" {
-  api_id             = aws_apigatewayv2_api.crud_api.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.dictionary.invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.crud_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.dictionary.invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "product" {
-  api_id             = aws_apigatewayv2_api.crud_api.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.product.invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.crud_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.product.invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "shopping_cart" {
-  api_id             = aws_apigatewayv2_api.crud_api.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.shopping_cart.invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.crud_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.shopping_cart.invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
@@ -404,9 +404,9 @@ resource "aws_ecr_repository" "mcp_server" {
 }
 
 data "aws_ecr_image" "mcp_server_latest" {
-  count         = var.stage == "prod" ? 1 : 0
+  count           = var.stage == "prod" ? 1 : 0
   repository_name = aws_ecr_repository.mcp_server[0].name
-  image_tag     = "latest"
+  image_tag       = "latest"
 }
 
 resource "aws_ecs_cluster" "mcp" {

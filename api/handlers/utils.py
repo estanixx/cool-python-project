@@ -22,11 +22,6 @@ def parse_event(event: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         method = event.get("requestContext", {}).get("http", {}).get("method", "").upper()
         operation = METHOD_TO_OPERATION.get(method)
 
-        # Allow query parameter to override operation (e.g., GET /product?operation=list)
-        query_params = event.get("queryStringParameters") or {}
-        if "operation" in query_params:
-            operation = query_params["operation"]
-
         body = event.get("body", "{}")
         if isinstance(body, str):
             try:
@@ -35,6 +30,16 @@ def parse_event(event: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
                 payload = {}
         else:
             payload = body or {}
+
+        # Allow body operation to override HTTP method mapping
+        # (e.g., POST /shopping-cart with {"operation": "add_product"})
+        if "operation" in payload:
+            operation = payload["operation"]
+
+        # Allow query parameter to override operation (e.g., GET /product?operation=list)
+        query_params = event.get("queryStringParameters") or {}
+        if "operation" in query_params:
+            operation = query_params["operation"]
 
         # Inject path parameters (e.g., {word} from /dictionary/{word})
         path_params = event.get("pathParameters") or {}
