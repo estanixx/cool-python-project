@@ -54,7 +54,7 @@ jobs:
         uses: aquasecurity/tfsec-action@v1.0.0
         with:
           working_directory: infra/
-          args: --exclude-downloaded-modules --format sarif --out tfsec-results.sarif
+          extra_args: --exclude-downloaded-modules --format sarif --out tfsec-results.sarif
 
       - name: Upload tfsec results
         uses: github/codeql-action/upload-sarif@v3
@@ -66,9 +66,6 @@ jobs:
     name: SonarQube Analysis
     needs: test
     runs-on: ubuntu-latest
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    if: ${{ env.SONAR_TOKEN != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -84,6 +81,7 @@ jobs:
         run: pip install -r api/requirements.txt
 
       - name: SonarQube Scan
+        if: ${{ secrets.SONAR_TOKEN != '' }}
         uses: SonarSource/sonarcloud-github-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
