@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 env:
-  AWS_ROLE_ARN: ${{ vars.ROLE_ARN }}
+  AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
   ECR_REPOSITORY: mcp-server-prod
   AWS_REGION: us-east-1
 
