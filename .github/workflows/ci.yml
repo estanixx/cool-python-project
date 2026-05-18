@@ -11,10 +11,10 @@ jobs:
     name: Python Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -30,10 +30,10 @@ jobs:
     name: Terraform Validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
 
       - name: Terraform Format
         run: terraform fmt -check -recursive infra/
@@ -51,13 +51,13 @@ jobs:
           terraform validate
 
       - name: Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.0
+        uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: infra/
           extra_args: --exclude-downloaded-modules --format sarif --out tfsec-results.sarif
 
       - name: Upload tfsec results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: tfsec-results.sarif
@@ -70,12 +70,12 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # 1. Map secret to job-level env
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -84,16 +84,16 @@ jobs:
 
       - name: SonarQube Scan
         if: env.SONAR_TOKEN != '' # 2. Check the env variable here instead
-        uses: SonarSource/sonarcloud-github-action@v2
+        uses: SonarSource/sonarcloud-github-action@v5
 
   openapi-validate:
     name: OpenAPI Spec Validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
