@@ -289,18 +289,19 @@ if __name__ == "__main__":
     import uvicorn
     from starlette.applications import Starlette
     from starlette.responses import JSONResponse
-    from starlette.routing import Route
+    from starlette.routing import Mount, Route
 
     # Health check endpoint for ALB
     async def health(request):
         return JSONResponse({"status": "ok"})
 
-    # SSE app from MCP SDK — serves SSE at /sse and messages at /messages/{session_id}
-    sse_app = mcp.sse_app()
+    # Use streamable-http transport (no host header validation, works behind ALB)
+    streamable_app = mcp.streamable_http_app()
 
-    # Mount SSE routes at root so OpenCode's remote MCP client finds them
-    app = Starlette(routes=[
-        Route("/health", health),
-        *sse_app.routes,
-    ])
+    app = Starlette(
+        routes=[
+            Route("/health", health),
+            Mount("/", app=streamable_app),
+        ]
+    )
     uvicorn.run(app, host="0.0.0.0", port=8000)
