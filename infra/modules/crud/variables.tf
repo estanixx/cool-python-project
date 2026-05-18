@@ -67,6 +67,7 @@ variable "lambda_artifacts" {
     dictionary    = string
     product       = string
     shopping_cart = string
+    word_trick    = optional(string, "")
   })
 }
 
@@ -76,6 +77,7 @@ variable "lambda_function_names" {
     dictionary    = string
     product       = string
     shopping_cart = string
+    word_trick    = optional(string, "")
   })
 
   validation {
@@ -94,6 +96,7 @@ variable "lambda_handler_names" {
     dictionary    = string
     product       = string
     shopping_cart = string
+    word_trick    = optional(string, "")
   })
 
   validation {

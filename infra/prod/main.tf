@@ -76,6 +76,24 @@ data "archive_file" "shopping_cart" {
   }
 }
 
+data "archive_file" "word_trick" {
+  type        = "zip"
+  output_path = "${path.module}/.terraform/artifacts/word_trick.zip"
+
+  dynamic "source" {
+    for_each = local.lambda_shared
+    content {
+      content  = source.value.content
+      filename = source.value.filename
+    }
+  }
+
+  source {
+    content  = file("${local.backend_root}/handlers/word_trick_handler.py")
+    filename = "api/handlers/word_trick_handler.py"
+  }
+}
+
 module "crud" {
   source = "../modules/crud"
 
@@ -96,17 +114,20 @@ module "crud" {
     dictionary    = "dictionary-${var.stage}"
     product       = "product-${var.stage}"
     shopping_cart = "shopping-cart-${var.stage}"
+    word_trick    = "word-trick-${var.stage}"
   }
 
   lambda_handler_names = {
     dictionary    = "api.handlers.dictionary_handler.handler"
     product       = "api.handlers.product_handler.handler"
     shopping_cart = "api.handlers.shopping_cart_handler.handler"
+    word_trick    = "api.handlers.word_trick_handler.handler"
   }
 
   lambda_artifacts = {
     dictionary    = data.archive_file.dictionary.output_path
     product       = data.archive_file.product.output_path
     shopping_cart = data.archive_file.shopping_cart.output_path
+    word_trick    = data.archive_file.word_trick.output_path
   }
 }

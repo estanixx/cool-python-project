@@ -155,6 +155,26 @@ resource "aws_lambda_function" "shopping_cart" {
   tags = local.tags
 }
 
+resource "aws_lambda_function" "word_trick" {
+  count            = var.stage == "prod" ? 1 : 0
+  function_name    = var.lambda_function_names.word_trick
+  role             = aws_iam_role.lambda_role.arn
+  handler          = var.lambda_handler_names.word_trick
+  runtime          = var.lambda_runtime
+  timeout          = var.lambda_timeout
+  filename         = var.lambda_artifacts.word_trick
+  source_code_hash = filebase64sha256(var.lambda_artifacts.word_trick)
+
+  environment {
+    variables = {
+      STAGE            = var.stage
+      AWS_ENDPOINT_URL = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
+    }
+  }
+
+  tags = local.tags
+}
+
 # HTTP API (v2) for Lambda integration
 resource "aws_apigatewayv2_api" "crud_api" {
   name          = "serverless-crud-${var.stage}"
@@ -235,6 +255,20 @@ resource "aws_apigatewayv2_route" "shopping_cart_item" {
   target    = "integrations/${aws_apigatewayv2_integration.shopping_cart.id}"
 }
 
+resource "aws_apigatewayv2_integration" "word_trick" {
+  api_id                 = aws_apigatewayv2_api.crud_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.word_trick[0].invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "word_trick" {
+  api_id    = aws_apigatewayv2_api.crud_api.id
+  route_key = "ANY /word-trick"
+  target    = "integrations/${aws_apigatewayv2_integration.word_trick.id}"
+}
+
 # Lambda permissions for API Gateway
 resource "aws_lambda_permission" "dictionary" {
   statement_id  = "AllowAPIGatewayInvoke"
@@ -256,6 +290,15 @@ resource "aws_lambda_permission" "shopping_cart" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.shopping_cart.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.crud_api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "word_trick" {
+  count         = var.stage == "prod" ? 1 : 0
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.word_trick[0].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.crud_api.execution_arn}/*/*"
 }
