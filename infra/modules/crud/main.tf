@@ -193,6 +193,21 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.crud_api.id
   name        = "$default"
   auto_deploy = true
+
+  dynamic "access_log_settings" {
+    for_each = var.stage == "prod" ? [1] : []
+    content {
+      destination_arn = aws_cloudwatch_log_group.api_gw_access_logs[0].arn
+      format = jsonencode({
+        requestId        = "$context.requestId"
+        method           = "$context.httpMethod"
+        path             = "$context.path"
+        status           = "$context.status"
+        latency          = "$context.integrationLatency"
+        integrationError = "$context.integration.error"
+      })
+    }
+  }
 }
 
 resource "aws_apigatewayv2_integration" "dictionary" {
@@ -580,6 +595,52 @@ resource "aws_cloudwatch_log_group" "mcp_server" {
   tags = local.tags
 }
 
+# --- API Gateway Access Logs (prod only) ---
+
+resource "aws_cloudwatch_log_group" "api_gw_access_logs" {
+  count             = var.stage == "prod" ? 1 : 0
+  name              = "/api-gw/access-logs-${var.stage}"
+  retention_in_days = 30
+  tags              = local.tags
+}
+
+resource "aws_iam_role" "api_gw_cloudwatch" {
+  count = var.stage == "prod" ? 1 : 0
+  name  = "api-gw-cloudwatch-role-${var.stage}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "apigateway.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = local.tags
+}
+
+resource "aws_iam_role_policy" "api_gw_cloudwatch" {
+  count = var.stage == "prod" ? 1 : 0
+  name  = "api-gw-cloudwatch-policy-${var.stage}"
+  role  = aws_iam_role.api_gw_cloudwatch[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Effect   = "Allow"
+      Resource = "arn:aws:logs:*:*:*"
+    }]
+  })
+}
+
 # ALB and Target Group (when enable_alb=true)
 resource "aws_lb" "mcp" {
   count              = var.enable_alb && var.stage == "prod" ? 1 : 0
@@ -700,4 +761,177 @@ resource "aws_appautoscaling_policy" "mcp_memory" {
     }
     target_value = 70.0
   }
+}
+
+# --- Observability: MCP Log Metric Filters (prod only) ---
+
+resource "aws_cloudwatch_log_metric_filter" "mcp_tool_calls" {
+  count          = var.stage == "prod" ? 1 : 0
+  name           = "MCPToolCalls"
+  log_group_name = aws_cloudwatch_log_group.mcp_server[0].name
+  pattern        = "{ $.status < 400 && $.tool = * }"
+
+  metric_transformation {
+    name      = "ToolCalls"
+    namespace = "MCP/Server"
+    value     = "1"
+    dimensions = {
+      ToolName = "$.tool"
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_metric_filter" "mcp_tool_errors" {
+  count          = var.stage == "prod" ? 1 : 0
+  name           = "MCPToolErrors"
+  log_group_name = aws_cloudwatch_log_group.mcp_server[0].name
+  pattern        = "{ $.status >= 400 && $.tool = * }"
+
+  metric_transformation {
+    name      = "ToolErrors"
+    namespace = "MCP/Server"
+    value     = "1"
+    dimensions = {
+      ToolName = "$.tool"
+    }
+  }
+}
+
+# --- Observability: CloudWatch Dashboard (prod only) ---
+
+locals {
+  dashboard_body = jsonencode({
+    widgets = [
+      # Row 1: MCP Custom Metrics
+      { type = "metric", x = 0, y = 0, width = 12, height = 6,
+        properties = {
+          title = "MCP Tool Calls",
+          metrics = [["MCP/Server", "ToolCalls", { stat = "Sum", period = 300 }]],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 12, y = 0, width = 12, height = 6,
+        properties = {
+          title = "MCP Tool Errors",
+          metrics = [["MCP/Server", "ToolErrors", { stat = "Sum", period = 300 }]],
+          view = "timeSeries"
+        }
+      },
+      # Row 2: API Gateway
+      { type = "metric", x = 0, y = 6, width = 8, height = 6,
+        properties = {
+          title = "API Gateway — Count",
+          metrics = [["AWS/ApiGateway", "Count", "ApiName", "serverless-crud-${var.stage}", { stat = "Sum" }]],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 8, y = 6, width = 8, height = 6,
+        properties = {
+          title = "API Gateway — Latency",
+          metrics = [["AWS/ApiGateway", "Latency", "ApiName", "serverless-crud-${var.stage}", { stat = "Average" }]],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 16, y = 6, width = 8, height = 6,
+        properties = {
+          title = "API Gateway — 4xx/5xx",
+          metrics = [
+            ["AWS/ApiGateway", "4xx", "ApiName", "serverless-crud-${var.stage}", { stat = "Sum" }],
+            [".", "5xx", ".", ".", { stat = "Sum" }]
+          ],
+          view = "timeSeries"
+        }
+      },
+      # Row 3: ECS
+      { type = "metric", x = 0, y = 12, width = 8, height = 6,
+        properties = {
+          title = "ECS — CPU Utilization",
+          metrics = [["AWS/ECS", "CPUUtilization", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 8, y = 12, width = 8, height = 6,
+        properties = {
+          title = "ECS — Memory Utilization",
+          metrics = [["AWS/ECS", "MemoryUtilization", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 16, y = 12, width = 8, height = 6,
+        properties = {
+          title = "ECS — Running Task Count",
+          metrics = [["AWS/ECS", "RunningTaskCount", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
+          view = "timeSeries"
+        }
+      },
+      # Row 4: ALB
+      { type = "metric", x = 0, y = 18, width = 8, height = 6,
+        properties = {
+          title = "ALB — Request Count",
+          metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Sum" }]],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 8, y = 18, width = 8, height = 6,
+        properties = {
+          title = "ALB — Target Response Time",
+          metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Average" }]],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 16, y = 18, width = 8, height = 6,
+        properties = {
+          title = "ALB — Healthy Host Count",
+          metrics = [["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Average" }]],
+          view = "timeSeries"
+        }
+      },
+      # Row 5: DynamoDB
+      { type = "metric", x = 0, y = 24, width = 12, height = 6,
+        properties = {
+          title = "DynamoDB — Read/Write Capacity",
+          metrics = [
+            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", var.table_names.dictionary, { stat = "Sum" }],
+            [".", "ConsumedWriteCapacityUnits", ".", ".", { stat = "Sum" }]
+          ],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 12, y = 24, width = 12, height = 6,
+        properties = {
+          title = "DynamoDB — System Errors",
+          metrics = [["AWS/DynamoDB", "SystemErrors", "TableName", var.table_names.dictionary, { stat = "Sum" }]],
+          view = "timeSeries"
+        }
+      },
+      # Row 6: Lambda
+      { type = "metric", x = 0, y = 30, width = 8, height = 6,
+        properties = {
+          title = "Lambda — Invocations",
+          metrics = [["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_names.dictionary, { stat = "Sum" }]],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 8, y = 30, width = 8, height = 6,
+        properties = {
+          title = "Lambda — Duration",
+          metrics = [["AWS/Lambda", "Duration", "FunctionName", var.lambda_function_names.dictionary, { stat = "Average" }]],
+          view = "timeSeries"
+        }
+      },
+      { type = "metric", x = 16, y = 30, width = 8, height = 6,
+        properties = {
+          title = "Lambda — Errors",
+          metrics = [["AWS/Lambda", "Errors", "FunctionName", var.lambda_function_names.dictionary, { stat = "Sum" }]],
+          view = "timeSeries"
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_cloudwatch_dashboard" "main" {
+  count          = var.stage == "prod" ? 1 : 0
+  dashboard_name = "mcp-server-${var.stage}"
+  dashboard_body = local.dashboard_body
 }
