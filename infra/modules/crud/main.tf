@@ -180,6 +180,7 @@ resource "aws_apigatewayv2_integration" "dictionary" {
   integration_type   = "AWS_PROXY"
   integration_uri    = aws_lambda_function.dictionary.invoke_arn
   integration_method = "POST"
+  payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "product" {
@@ -187,6 +188,7 @@ resource "aws_apigatewayv2_integration" "product" {
   integration_type   = "AWS_PROXY"
   integration_uri    = aws_lambda_function.product.invoke_arn
   integration_method = "POST"
+  payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "shopping_cart" {
@@ -194,6 +196,7 @@ resource "aws_apigatewayv2_integration" "shopping_cart" {
   integration_type   = "AWS_PROXY"
   integration_uri    = aws_lambda_function.shopping_cart.invoke_arn
   integration_method = "POST"
+  payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_route" "dictionary" {
