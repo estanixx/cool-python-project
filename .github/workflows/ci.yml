@@ -66,6 +66,8 @@ jobs:
     name: SonarQube Analysis
     needs: test
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # 1. Map secret to job-level env
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -81,10 +83,8 @@ jobs:
         run: pip install -r api/requirements.txt
 
       - name: SonarQube Scan
-        if: ${{ secrets.SONAR_TOKEN != '' }}
+        if: env.SONAR_TOKEN != '' # 2. Check the env variable here instead
         uses: SonarSource/sonarcloud-github-action@v2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   openapi-validate:
     name: OpenAPI Spec Validation
