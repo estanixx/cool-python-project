@@ -50,17 +50,21 @@ jobs:
           terraform init -backend=false
           terraform validate
 
-      - name: Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.0
+      - name: Run Trivy terraform scan
+        uses: aquasecurity/trivy-action@master
         with:
-          working_directory: infra/
-          extra_args: --exclude-downloaded-modules --format sarif --out tfsec-results.sarif
+          scan-type: config
+          scan-ref: infra/
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "1"
+          severity: CRITICAL,HIGH
 
-      - name: Upload tfsec results
+      - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: tfsec-results.sarif
+          sarif_file: trivy-results.sarif
 
   sonarqube:
     name: SonarQube Analysis

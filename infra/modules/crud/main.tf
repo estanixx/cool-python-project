@@ -15,6 +15,14 @@ resource "aws_dynamodb_table" "dictionary" {
     type = "S"
   }
 
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = local.tags
 }
 
@@ -28,6 +36,14 @@ resource "aws_dynamodb_table" "product" {
     type = "S"
   }
 
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = local.tags
 }
 
@@ -39,6 +55,14 @@ resource "aws_dynamodb_table" "shopping_cart" {
   attribute {
     name = "UUID"
     type = "S"
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
   }
 
   tags = local.tags
@@ -193,6 +217,20 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.crud_api.id
   name        = "$default"
   auto_deploy = true
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway.arn
+    format = jsonencode({
+      requestId      = "$context.requestId"
+      ip             = "$context.identity.sourceIp"
+      requestTime    = "$context.requestTime"
+      httpMethod     = "$context.httpMethod"
+      routeKey       = "$context.routeKey"
+      status         = "$context.status"
+      protocol       = "$context.protocol"
+      responseLength = "$context.responseLength"
+    })
+  }
 }
 
 resource "aws_apigatewayv2_integration" "dictionary" {
@@ -393,12 +431,63 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private[0].id
 }
 
+# --- VPC Flow Logs (when enable_alb=true) ---
+
+resource "aws_iam_role" "flow_log_role" {
+  count = var.enable_alb ? 1 : 0
+  name  = "vpc-flow-log-role-${var.stage}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "vpc-flow-logs.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "flow_log_policy" {
+  count      = var.enable_alb ? 1 : 0
+  role       = aws_iam_role.flow_log_role[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
+  count             = var.enable_alb ? 1 : 0
+  name              = "/aws/vpc/flow-logs/${var.stage}"
+  retention_in_days = 30
+
+  tags = local.tags
+}
+
+resource "aws_flow_log" "main" {
+  count                = var.enable_alb ? 1 : 0
+  iam_role_arn         = aws_iam_role.flow_log_role[0].arn
+  log_destination      = aws_cloudwatch_log_group.vpc_flow_logs[0].arn
+  log_destination_type = "cloud-watch-logs"
+  traffic_type         = "ALL"
+  vpc_id               = aws_vpc.main[0].id
+
+  tags = local.tags
+}
+
 # --- ECS Fargate for MCP Server (Production only) ---
 
 resource "aws_ecr_repository" "mcp_server" {
   count        = var.stage == "prod" ? 1 : 0
   name         = "mcp-server-${var.stage}"
   force_delete = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  image_tag_mutability = "IMMUTABLE"
 
   tags = local.tags
 }
@@ -412,6 +501,11 @@ data "aws_ecr_image" "mcp_server_latest" {
 resource "aws_ecs_cluster" "mcp" {
   count = var.stage == "prod" ? 1 : 0
   name  = "mcp-cluster-${var.stage}"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 
   tags = local.tags
 }
@@ -478,6 +572,7 @@ resource "aws_security_group" "alb" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 
   tags = local.tags
@@ -516,6 +611,7 @@ resource "aws_security_group" "mcp_server" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 
   tags = local.tags
@@ -580,14 +676,22 @@ resource "aws_cloudwatch_log_group" "mcp_server" {
   tags = local.tags
 }
 
+resource "aws_cloudwatch_log_group" "api_gateway" {
+  name              = "/aws/apigateway/${var.stage}"
+  retention_in_days = 30
+
+  tags = local.tags
+}
+
 # ALB and Target Group (when enable_alb=true)
 resource "aws_lb" "mcp" {
-  count              = var.enable_alb && var.stage == "prod" ? 1 : 0
-  name               = "mcp-alb-${var.stage}"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb[0].id]
-  subnets            = aws_subnet.public[*].id
+  count                      = var.enable_alb && var.stage == "prod" ? 1 : 0
+  name                       = "mcp-alb-${var.stage}"
+  internal                   = false
+  load_balancer_type         = "application"
+  security_groups            = [aws_security_group.alb[0].id]
+  subnets                    = aws_subnet.public[*].id
+  drop_invalid_header_fields = true
 
   tags = local.tags
 }

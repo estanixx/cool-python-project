@@ -1,0 +1,31 @@
+# Trivy Ignore File — CI Hardening
+# Accepted findings are intentional design decisions for MVP.
+# Review quarterly and remove suppressions as infrastructure matures.
+# Last reviewed: 2026-05-18
+
+# ALB must be internet-facing to serve public API traffic
+aws-elb-alb-not-public
+
+# ALB security group needs public ingress for HTTP traffic
+aws-ec2-no-public-ingress-sgr
+
+# ALB security group needs egress for health checks and upstream calls
+aws-ec2-no-public-egress-sgr
+
+# Public subnets require public IPs for ALB internet access
+aws-ec2-no-public-ip-subnet
+
+# ALB HTTP listener — no domain/ACM certificate provisioned yet for HTTPS
+aws-elb-http-not-used
+
+# Lambda X-Ray tracing — post-MVP observability enhancement
+aws-lambda-enable-tracing
+
+# DynamoDB encryption with AWS-managed keys is sufficient for MVP
+aws-dynamodb-table-customer-key
+
+# ECR encryption with AWS-managed keys is sufficient for MVP
+aws-ecr-repository-customer-key
+
+# CloudWatch log group CMK — post-MVP security enhancement
+aws-cloudwatch-log-group-customer-key
