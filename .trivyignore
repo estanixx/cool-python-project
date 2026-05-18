@@ -3,29 +3,20 @@
 # Review quarterly and remove suppressions as infrastructure matures.
 # Last reviewed: 2026-05-18
 
-# ALB must be internet-facing to serve public API traffic
-AVD-AWS-0051
+# ALB public ingress/egress — required for public API traffic
+AVD-AWS-0107
+AVD-AWS-0094
 
-# ALB security group needs public ingress for HTTP traffic
-AVD-AWS-0104
+# Public subnet IPs — required for ALB in public subnets
+AVD-AWS-0178
 
-# ALB security group needs egress for health checks and upstream calls
-AVD-AWS-0105
+# Lambda X-Ray tracing — deferred to post-MVP observability
+AVD-AWS-0069
 
-# Public subnets require public IPs for ALB internet access
-AVD-AWS-0106
+# DynamoDB/ECR/CloudWatch using AWS-managed KMS — sufficient for MVP
+AVD-AWS-0065
+AVD-AWS-0131
+AVD-AWS-0027
 
-# ALB HTTP listener — no domain/ACM certificate provisioned yet for HTTPS
-AVD-AWS-0053
-
-# Lambda X-Ray tracing — post-MVP observability enhancement
-AVD-AWS-0066
-
-# DynamoDB encryption with AWS-managed keys is sufficient for MVP
-AVD-AWS-0024
-
-# ECR encryption with AWS-managed keys is sufficient for MVP
-AVD-AWS-0033
-
-# CloudWatch log group CMK — post-MVP security enhancement
-AVD-AWS-0017
+# ALB HTTP listener — no domain or ACM certificate yet
+AVD-AWS-0054

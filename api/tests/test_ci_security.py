@@ -262,15 +262,14 @@ class TestTrivyIgnoreFile(unittest.TestCase):
     def test_trivyignore_contains_required_suppressions(self):
         content = read_root_file(".trivyignore")
         required_ids = [
-            "AVD-AWS-0104",
-            "AVD-AWS-0105",
-            "AVD-AWS-0106",
-            "AVD-AWS-0053",
-            "AVD-AWS-0051",
-            "AVD-AWS-0066",
-            "AVD-AWS-0024",
-            "AVD-AWS-0033",
-            "AVD-AWS-0017",
+            "AVD-AWS-0107",
+            "AVD-AWS-0094",
+            "AVD-AWS-0178",
+            "AVD-AWS-0069",
+            "AVD-AWS-0065",
+            "AVD-AWS-0131",
+            "AVD-AWS-0027",
+            "AVD-AWS-0054",
         ]
         for rule_id in required_ids:
             with self.subTest(rule_id=rule_id):
