@@ -1,6 +1,6 @@
 """MCP server exposing CRUD tools via HTTP API calls.
 
-Transport: Streamable HTTP (works behind ALB, no host validation).
+Transport: SSE (Server-Sent Events) for remote MCP clients.
 """
 import json
 import os
@@ -18,7 +18,6 @@ mcp = FastMCP(
     stateless_http=True,
     json_response=True,
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
-    streamable_http_path="/",
 )
 
 # Configuration: API base URL and API ID (from Floci/AWS)
@@ -62,28 +61,22 @@ def _call_api(
                 payload = {"raw": response.text}
         else:
             # Direct Lambda invocation (legacy format)
-            # Extract resource name from path (e.g., "/dictionary/{word}" -> "dictionary")
             path_parts = path.strip("/").split("/")
             resource = path_parts[0]
-            
-            # Extract path parameters
+
             path_params = {}
             if len(path_parts) > 1:
-                # Map common path parameter names
                 if resource == "dictionary":
                     path_params["word"] = path_parts[1]
                 elif resource == "product":
                     path_params["product_id"] = path_parts[1]
                 elif resource == "shopping-cart":
                     path_params["cart_id"] = path_parts[1]
-            
-            # Build Lambda URL
+
             url = f"{API_ENDPOINT}/{resource}-local/invocations"
-            
-            # Build event with operation, payload, and path parameters
+
             operation_map = {"POST": "create", "GET": "read", "PUT": "update", "DELETE": "delete"}
             event_payload = {**(body or {}), **path_params}
-            # Operation priority: body > query_params > HTTP method mapping
             op = (body or {}).get("operation")
             if op is None and query_params and "operation" in query_params:
                 op = query_params["operation"]
@@ -304,12 +297,12 @@ if __name__ == "__main__":
     async def health(request):
         return JSONResponse({"status": "ok"})
 
-    streamable_app = mcp.streamable_http_app()
+    sse_app = mcp.sse_app()
 
     app = Starlette(
         routes=[
             Route("/health", health),
-            Mount("/", app=streamable_app),
+            *sse_app.routes,
         ]
     )
     uvicorn.run(app, host="0.0.0.0", port=8000)
