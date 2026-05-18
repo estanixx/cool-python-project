@@ -87,7 +87,7 @@ output "aws_endpoint_url" {
   value       = var.aws_endpoint_url
 }
 
-output "dashboard_arn" {
-  description = "CloudWatch dashboard ARN (prod only)."
-  value       = var.stage == "prod" ? aws_cloudwatch_dashboard.main[0].arn : null
+output "dashboard_name" {
+  description = "CloudWatch dashboard name (prod only)."
+  value       = var.stage == "prod" ? aws_cloudwatch_dashboard.main[0].dashboard_name : null
 }
