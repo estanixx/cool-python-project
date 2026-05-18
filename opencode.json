@@ -3,7 +3,7 @@
   "mcp": {
     "serverless-dev": {
       "type": "remote",
-      "url": "http://localhost:8000/sse"
+      "url": "http://mcp-alb-prod-1817039186.us-east-1.elb.amazonaws.com/sse"
     }
   }
 }
