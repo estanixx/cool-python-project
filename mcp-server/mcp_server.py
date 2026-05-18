@@ -287,8 +287,20 @@ def word_trick(sentence: str) -> CallToolResult:
 
 if __name__ == "__main__":
     import uvicorn
-    
-    # Use SSE transport for better client compatibility
-    # SSE is more widely supported than streamable-http
-    app = mcp.sse_app()
+    from starlette.applications import Starlette
+    from starlette.responses import JSONResponse
+    from starlette.routing import Mount, Route
+
+    # Health check endpoint for ALB
+    async def health(request):
+        return JSONResponse({"status": "ok"})
+
+    sse_app = mcp.sse_app()
+
+    app = Starlette(
+        routes=[
+            Route("/health", health),
+            Mount("/", app=sse_app),
+        ]
+    )
     uvicorn.run(app, host="0.0.0.0", port=8000)

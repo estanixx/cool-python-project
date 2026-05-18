@@ -549,13 +549,13 @@ resource "aws_lb_target_group" "mcp" {
   vpc_id      = aws_vpc.main[0].id
 
   health_check {
-    path                = "/"
+    path                = "/health"
     protocol            = "HTTP"
-    healthy_threshold   = 3
+    healthy_threshold   = 2
     unhealthy_threshold = 3
     timeout             = 5
     interval            = 30
-    matcher             = "200-499"
+    matcher             = "200"
   }
 
   tags = local.tags
