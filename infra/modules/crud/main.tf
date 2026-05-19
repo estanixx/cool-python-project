@@ -295,6 +295,7 @@ resource "aws_apigatewayv2_route" "shopping_cart_item" {
 }
 
 resource "aws_apigatewayv2_integration" "word_trick" {
+  count                  = var.stage == "prod" ? 1 : 0
   api_id                 = aws_apigatewayv2_api.crud_api.id
   integration_type       = "AWS_PROXY"
   integration_uri        = aws_lambda_function.word_trick[0].invoke_arn
@@ -303,9 +304,10 @@ resource "aws_apigatewayv2_integration" "word_trick" {
 }
 
 resource "aws_apigatewayv2_route" "word_trick" {
+  count     = var.stage == "prod" ? 1 : 0
   api_id    = aws_apigatewayv2_api.crud_api.id
   route_key = "ANY /word-trick"
-  target    = "integrations/${aws_apigatewayv2_integration.word_trick.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.word_trick[0].id}"
 }
 
 # Lambda permissions for API Gateway
