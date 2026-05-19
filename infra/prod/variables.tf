@@ -21,3 +21,9 @@ variable "mcp_image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "github_token" {
+  description = "GitHub Personal Access Token with repo scope for Amplify repo linking. Store in GitHub Secrets as GH_PAT."
+  type        = string
+  sensitive   = true
+}

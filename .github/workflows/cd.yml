@@ -120,9 +120,9 @@ jobs:
 
       - name: Terraform Plan
         working-directory: infra/prod
-        run: terraform plan -var="mcp_image_tag=${{ steps.image-tag.outputs.tag }}" -no-color -input=false
+        run: terraform plan -var="mcp_image_tag=${{ steps.image-tag.outputs.tag }}" -var="github_token=${{ secrets.GH_PAT }}" -no-color -input=false
 
       - name: Terraform Apply
         working-directory: infra/prod
         if: github.ref == 'refs/heads/main'
-        run: terraform apply -var="mcp_image_tag=${{ steps.image-tag.outputs.tag }}" -auto-approve -input=false
+        run: terraform apply -var="mcp_image_tag=${{ steps.image-tag.outputs.tag }}" -var="github_token=${{ secrets.GH_PAT }}" -auto-approve -input=false
