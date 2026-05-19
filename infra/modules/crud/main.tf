@@ -923,7 +923,7 @@ locals {
             [".", "5xx", ".", ".", { stat = "Sum" }]
           ],
           region = var.aws_region
-          view = "timeSeries"
+          view   = "timeSeries"
         }
       },
       # Row 3: ECS
@@ -985,7 +985,7 @@ locals {
             [".", "ConsumedWriteCapacityUnits", ".", ".", { stat = "Sum" }]
           ],
           region = var.aws_region
-          view = "timeSeries"
+          view   = "timeSeries"
         }
       },
       { type = "metric", x = 12, y = 24, width = 12, height = 6,
