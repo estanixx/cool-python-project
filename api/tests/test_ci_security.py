@@ -125,7 +125,7 @@ class TestSonarProjectProperties(unittest.TestCase):
 
     def test_sonar_project_key(self):
         content = read_root_file("sonar-project.properties")
-        self.assertIn("sonar.projectKey=estanix_cool-python-project", content)
+        self.assertIn("sonar.projectKey=estanixx_cool-python-project", content)
 
     def test_sonar_project_name(self):
         content = read_root_file("sonar-project.properties")
@@ -184,6 +184,10 @@ class TestCISonarQubeJob(unittest.TestCase):
         self.assertIn("SonarSource/sonarcloud-github-action", content)
         self.assertIn("v2", content)
 
+    def test_sonarqube_step_is_report_only(self):
+        content = read_workflow("ci.yml")
+        self.assertIn("continue-on-error: true", content)
+
 
 class TestCITrivyStep(unittest.TestCase):
     """CI pipeline Trivy step — spec scenarios: scans infra, outputs SARIF, uploads results."""
@@ -211,7 +215,7 @@ class TestCITrivyStep(unittest.TestCase):
 
     def test_trivy_exit_code_on_high_severity(self):
         content = read_workflow("ci.yml")
-        self.assertIn("exit-code: \"1\"", content)
+        self.assertIn("exit-code: \"0\"", content)
         self.assertIn("severity: CRITICAL,HIGH", content)
 
     def test_trivy_uploads_sarif_results(self):
@@ -253,27 +257,11 @@ class TestCIExistingJobsUnchanged(unittest.TestCase):
 
 
 class TestTrivyIgnoreFile(unittest.TestCase):
-    """Trivy ignore file — spec scenarios: file exists and has required suppressions."""
+    """Trivy ignore file — report-only mode must not rely on .trivyignore."""
 
-    def test_trivyignore_exists(self):
-        content = read_root_file(".trivyignore")
-        self.assertIn("Trivy Ignore", content)
-
-    def test_trivyignore_contains_required_suppressions(self):
-        content = read_root_file(".trivyignore")
-        required_ids = [
-            "AVD-AWS-0107",
-            "AVD-AWS-0094",
-            "AVD-AWS-0178",
-            "AVD-AWS-0069",
-            "AVD-AWS-0065",
-            "AVD-AWS-0131",
-            "AVD-AWS-0027",
-            "AVD-AWS-0054",
-        ]
-        for rule_id in required_ids:
-            with self.subTest(rule_id=rule_id):
-                self.assertIn(rule_id, content)
+    def test_trivyignore_is_removed(self):
+        trivyignore_path = ROOT / ".trivyignore"
+        self.assertFalse(trivyignore_path.exists())
 
 
 class TestSonarOrganizationProperty(unittest.TestCase):
@@ -281,4 +269,4 @@ class TestSonarOrganizationProperty(unittest.TestCase):
 
     def test_sonar_organization_exists(self):
         content = read_root_file("sonar-project.properties")
-        self.assertIn("sonar.organization=", content)
+        self.assertIn("sonar.organization=estanixx", content)

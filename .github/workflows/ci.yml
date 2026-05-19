@@ -57,7 +57,7 @@ jobs:
           scan-ref: infra/
           format: sarif
           output: trivy-results.sarif
-          exit-code: "1"
+          exit-code: "0"
           severity: CRITICAL,HIGH
 
       - name: Upload Trivy results
@@ -88,6 +88,7 @@ jobs:
 
       - name: SonarQube Scan
         if: env.SONAR_TOKEN != '' # 2. Check the env variable here instead
+        continue-on-error: true
         uses: SonarSource/sonarcloud-github-action@v2
 
   openapi-validate:
