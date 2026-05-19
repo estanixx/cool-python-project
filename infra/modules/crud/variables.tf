@@ -140,3 +140,9 @@ variable "vpc_cidr" {
   type        = string
   default     = "10.0.0.0/16"
 }
+
+variable "mcp_image_tag" {
+  description = "Docker image tag for the MCP server ECS task. In CI/CD, pass the commit SHA."
+  type        = string
+  default     = "latest"
+}

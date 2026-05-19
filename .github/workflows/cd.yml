@@ -69,24 +69,13 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Ensure ECR repository exists
-        run: |
-          terraform -chdir=infra/prod init
-          terraform -chdir=infra/prod apply \
-            -target=module.crud.aws_ecr_repository.mcp_server[0] \
-            -refresh=false -auto-approve
-
       - name: Build and push Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest mcp-server/
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG mcp-server/
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
   deploy:
     name: Deploy Infrastructure
@@ -108,15 +97,30 @@ jobs:
       - name: Verify OIDC Auth
         run: aws sts get-caller-identity
 
+      - name: Resolve image tag
+        id: image-tag
+        run: |
+          if [[ "${{ needs.build-and-push.result }}" == "success" ]]; then
+            echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            CURRENT_IMAGE=$(aws ecs describe-task-definition \
+              --task-definition "$(aws ecs describe-services \
+                --cluster mcp-cluster-prod \
+                --services mcp-server-service-prod \
+                --query 'services[0].taskDefinition' --output text 2>/dev/null)" \
+              --query 'taskDefinition.containerDefinitions[0].image' --output text 2>/dev/null) || CURRENT_IMAGE=""
+            echo "tag=${CURRENT_IMAGE##*:}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Terraform Init
         working-directory: infra/prod
         run: terraform init
 
       - name: Terraform Plan
         working-directory: infra/prod
-        run: terraform plan -no-color -input=false
+        run: terraform plan -var="mcp_image_tag=${{ steps.image-tag.outputs.tag }}" -no-color -input=false
 
       - name: Terraform Apply
         working-directory: infra/prod
         if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve -input=false
+        run: terraform apply -var="mcp_image_tag=${{ steps.image-tag.outputs.tag }}" -auto-approve -input=false

@@ -492,12 +492,6 @@ resource "aws_ecr_repository" "mcp_server" {
   tags = local.tags
 }
 
-data "aws_ecr_image" "mcp_server_latest" {
-  count           = var.stage == "prod" ? 1 : 0
-  repository_name = aws_ecr_repository.mcp_server[0].name
-  image_tag       = "latest"
-}
-
 resource "aws_ecs_cluster" "mcp" {
   count = var.stage == "prod" ? 1 : 0
   name  = "mcp-cluster-${var.stage}"
@@ -635,7 +629,7 @@ resource "aws_ecs_task_definition" "mcp_server" {
   container_definitions = jsonencode([
     {
       name      = "mcp-server"
-      image     = "${aws_ecr_repository.mcp_server[0].repository_url}@${data.aws_ecr_image.mcp_server_latest[0].image_digest}"
+      image     = "${aws_ecr_repository.mcp_server[0].repository_url}:${var.mcp_image_tag}"
       essential = true
       portMappings = [
         {

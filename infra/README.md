@@ -194,49 +194,40 @@ This allows the same Lambda code to route to Floci (local) or AWS (prod) based o
 
 The `prod/` environment optionally deploys an ECS Fargate service behind an ALB (when `enable_alb = true`). This is used for the MCP server (`mcp-server/`).
 
-### Bootstrap Sequence (First Deploy)
+### How it works
 
-There is a **circular dependency** between Terraform and the Docker image:
+The ECS task definition references the MCP server image via a **variable tag**:
 
-```
-Terraform needs the image to exist → Image is pushed via CD → CD needs the ECR repo to exist
-```
-
-`data.aws_ecr_image.mcp_server_latest` (in `modules/crud/main.tf`) resolves the digest of the `latest` tag at plan time. On the **first deploy**, the ECR repository exists (created by Terraform) but has **no images yet**, so the data source fails with:
-
-```
-Error: reading ECR Images: couldn't find resource
-The repository with name 'mcp-server-prod' does not exist in the registry
+```hcl
+image = "${aws_ecr_repository.mcp_server[0].repository_url}:${var.mcp_image_tag}"
 ```
 
-#### First-time bootstrap
+This avoids the circular dependency problem — Terraform never needs to resolve a data source at plan time. The tag is resolved by the CD pipeline (`cd.yml`):
 
-```bash
-# 1. Create the ECR repo and supporting infra first (no image needed yet)
-terraform -chdir=infra/prod apply \
-  -target=module.crud.aws_ecr_repository.mcp_server[0] \
-  -target=module.crud.aws_ecs_cluster.mcp[0] \
-  -target=module.crud.aws_iam_role.ecs_task_execution_role[0] \
-  -target=module.crud.aws_iam_role.ecs_task_role[0] \
-  -auto-approve
+| Scenario | `build-and-push` result | Tag passed to Terraform | Effect |
+|----------|------------------------|------------------------|--------|
+| Code changed | `success` | `${{ github.sha }}` | New image pushed → new tag → Terraform creates new task definition → **ECS auto-deploy** ✅ |
+| Infra-only change | `skipped` | Currently deployed tag (queried from ECS) | Terraform sees no image change → applies infra changes without touching ECS task ✅ |
+| First deploy | `success` | `${{ github.sha }}` | Terraform doesn't need the image to exist at plan time — only ECS needs it at runtime ✅ |
 
-# 2. Build and push the initial Docker image
-aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+### Image tags in ECR
 
-docker build -t mcp-server-prod:latest mcp-server/
-docker tag mcp-server-prod:latest <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/mcp-server-prod:latest
-docker push <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/mcp-server-prod:latest
+The ECR repository uses `image_tag_mutability = "IMMUTABLE"`. Each deploy pushes a **single tag** (`${{ github.sha }}`), never `latest`. This means:
 
-# 3. Deploy everything else (ECS service, ALB, etc.)
-terraform -chdir=infra/prod apply -auto-approve
-```
+- Every tag is unique and never overwritten
+- No risk of overwriting a deployed tag
+- Git SHA doubles as the image tag — full traceability from commit to running container
 
-#### Subsequent deploys (CD pipeline)
+### First-time deploy
 
-After the first deploy, the CD pipeline (`cd.yml`) handles everything automatically:
+There is **no manual bootstrap needed** — the CD pipeline handles everything automatically:
 
-1. **`build-and-push`**: Builds Docker image, pushes with tags `${{ github.sha }}` and `latest`
-2. **`deploy`**: Runs `terraform apply` — the `data.aws_ecr_image` resolves the `latest` tag digest successfully (image already exists), detects changes, creates a new task definition revision, and ECS triggers a rolling update.
+1. `build-and-push` pushes the image to ECR (the repo either exists or Terraform creates it)
+2. `deploy` runs `terraform apply -var="mcp_image_tag=${{ github.sha }}"` which creates the repo (if needed), task definition, service, etc.
+3. ECS pulls the image and starts the service
 
-> **Why not use a variable-based tag?** The current approach (`image@sha256:digest`) ensures Terraform detects real image changes and triggers ECS auto-deploy. A variable-based tag would need unique values per deploy (e.g., `${{ github.sha }}`) and conditional logic for skipped builds. The `-target` bootstrap is simpler and only needed once.
+### Key details
+
+- The ECS repository uses `IMMUTABLE` tags — you cannot overwrite a tag once pushed. This is why `latest` is **never used**. Every deploy uses the commit SHA as the image tag.
+- `terraform plan` does **not** validate that the image tag exists in ECR. Validation happens at runtime when ECS tries to pull the image. This is why a non-existent tag won't fail `terraform apply`, but will fail the ECS service deployment.
+- If `build-and-push` is skipped (no code changes), the deploy job queries the **currently deployed ECS task definition** for its image tag and passes it to Terraform. This prevents Terraform from creating a task definition with a non-existent image tag.
