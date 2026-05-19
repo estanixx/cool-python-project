@@ -12,8 +12,8 @@ ENTRYPOINT ["/bin/sh", "-c", "\
   API_ID=$(terraform output -raw api_id) && \
   echo \"API_ID=$API_ID\" > /shared/.env && \
   echo \"API_BASE_URL=http://floci:4566\" >> /shared/.env && \
-  echo \"NEXT_PUBLIC_API_BASE_URL=http://floci:4566\" >> /shared/.env && \
-  echo \"NEXT_PUBLIC_API_ID=$API_ID\" >> /shared/.env && \
+  echo \"API_ENDPOINT=http://floci:4566/restapis/$API_ID/_user_request_\" >> /shared/.env && \
+  echo \"NEXT_PUBLIC_API_URL=/api/proxy\" >> /shared/.env && \
   echo \"NEXT_PUBLIC_API_ENDPOINT=http://floci:4566/restapis/$API_ID/_user_request_\" >> /shared/.env && \
   echo 'Setup complete! API_ID:' $API_ID \
 "]

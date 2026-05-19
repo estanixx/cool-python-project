@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  process.env.NEXT_PUBLIC_API_URL || "/api/proxy";
 
 /**
  * Centralized API client for API Gateway v2 Lambda proxy integrations.
