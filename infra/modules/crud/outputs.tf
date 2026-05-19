@@ -91,3 +91,8 @@ output "dashboard_name" {
   description = "CloudWatch dashboard name (prod only)."
   value       = var.stage == "prod" ? aws_cloudwatch_dashboard.main[0].dashboard_name : null
 }
+
+output "dashboard_arn" {
+  description = "CloudWatch dashboard ARN (prod only)."
+  value       = var.stage == "prod" ? aws_cloudwatch_dashboard.main[0].dashboard_arn : null
+}
