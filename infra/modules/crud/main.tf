@@ -15,6 +15,14 @@ resource "aws_dynamodb_table" "dictionary" {
     type = "S"
   }
 
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = local.tags
 }
 
@@ -28,6 +36,14 @@ resource "aws_dynamodb_table" "product" {
     type = "S"
   }
 
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = local.tags
 }
 
@@ -39,6 +55,14 @@ resource "aws_dynamodb_table" "shopping_cart" {
   attribute {
     name = "UUID"
     type = "S"
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
   }
 
   tags = local.tags
@@ -408,6 +432,51 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private[0].id
 }
 
+# --- VPC Flow Logs (when enable_alb=true) ---
+
+resource "aws_iam_role" "flow_log_role" {
+  count = var.enable_alb ? 1 : 0
+  name  = "vpc-flow-log-role-${var.stage}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "vpc-flow-logs.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "flow_log_policy" {
+  count      = var.enable_alb ? 1 : 0
+  role       = aws_iam_role.flow_log_role[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
+  count             = var.enable_alb ? 1 : 0
+  name              = "/aws/vpc/flow-logs/${var.stage}"
+  retention_in_days = 30
+
+  tags = local.tags
+}
+
+resource "aws_flow_log" "main" {
+  count                = var.enable_alb ? 1 : 0
+  iam_role_arn         = aws_iam_role.flow_log_role[0].arn
+  log_destination      = aws_cloudwatch_log_group.vpc_flow_logs[0].arn
+  log_destination_type = "cloud-watch-logs"
+  traffic_type         = "ALL"
+  vpc_id               = aws_vpc.main[0].id
+
+  tags = local.tags
+}
+
 # --- ECS Fargate for MCP Server (Production only) ---
 
 resource "aws_ecr_repository" "mcp_server" {
@@ -415,18 +484,23 @@ resource "aws_ecr_repository" "mcp_server" {
   name         = "mcp-server-${var.stage}"
   force_delete = true
 
-  tags = local.tags
-}
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 
-data "aws_ecr_image" "mcp_server_latest" {
-  count           = var.stage == "prod" ? 1 : 0
-  repository_name = aws_ecr_repository.mcp_server[0].name
-  image_tag       = "latest"
+  image_tag_mutability = "IMMUTABLE"
+
+  tags = local.tags
 }
 
 resource "aws_ecs_cluster" "mcp" {
   count = var.stage == "prod" ? 1 : 0
   name  = "mcp-cluster-${var.stage}"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 
   tags = local.tags
 }
@@ -493,6 +567,7 @@ resource "aws_security_group" "alb" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 
   tags = local.tags
@@ -531,6 +606,7 @@ resource "aws_security_group" "mcp_server" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 
   tags = local.tags
@@ -554,7 +630,7 @@ resource "aws_ecs_task_definition" "mcp_server" {
   container_definitions = jsonencode([
     {
       name      = "mcp-server"
-      image     = "${aws_ecr_repository.mcp_server[0].repository_url}@${data.aws_ecr_image.mcp_server_latest[0].image_digest}"
+      image     = "${aws_ecr_repository.mcp_server[0].repository_url}:${var.mcp_image_tag}"
       essential = true
       portMappings = [
         {
@@ -643,12 +719,13 @@ resource "aws_iam_role_policy" "api_gw_cloudwatch" {
 
 # ALB and Target Group (when enable_alb=true)
 resource "aws_lb" "mcp" {
-  count              = var.enable_alb && var.stage == "prod" ? 1 : 0
-  name               = "mcp-alb-${var.stage}"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb[0].id]
-  subnets            = aws_subnet.public[*].id
+  count                      = var.enable_alb && var.stage == "prod" ? 1 : 0
+  name                       = "mcp-alb-${var.stage}"
+  internal                   = false
+  load_balancer_type         = "application"
+  security_groups            = [aws_security_group.alb[0].id]
+  subnets                    = aws_subnet.public[*].id
+  drop_invalid_header_fields = true
 
   tags = local.tags
 }
@@ -805,31 +882,31 @@ locals {
       # Row 1: MCP Custom Metrics
       { type = "metric", x = 0, y = 0, width = 12, height = 6,
         properties = {
-          title = "MCP Tool Calls",
+          title   = "MCP Tool Calls",
           metrics = [["MCP/Server", "ToolCalls", { stat = "Sum", period = 300 }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       { type = "metric", x = 12, y = 0, width = 12, height = 6,
         properties = {
-          title = "MCP Tool Errors",
+          title   = "MCP Tool Errors",
           metrics = [["MCP/Server", "ToolErrors", { stat = "Sum", period = 300 }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       # Row 2: API Gateway
       { type = "metric", x = 0, y = 6, width = 8, height = 6,
         properties = {
-          title = "API Gateway — Count",
+          title   = "API Gateway — Count",
           metrics = [["AWS/ApiGateway", "Count", "ApiName", "serverless-crud-${var.stage}", { stat = "Sum" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       { type = "metric", x = 8, y = 6, width = 8, height = 6,
         properties = {
-          title = "API Gateway — Latency",
+          title   = "API Gateway — Latency",
           metrics = [["AWS/ApiGateway", "Latency", "ApiName", "serverless-crud-${var.stage}", { stat = "Average" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       { type = "metric", x = 16, y = 6, width = 8, height = 6,
@@ -845,45 +922,45 @@ locals {
       # Row 3: ECS
       { type = "metric", x = 0, y = 12, width = 8, height = 6,
         properties = {
-          title = "ECS — CPU Utilization",
+          title   = "ECS — CPU Utilization",
           metrics = [["AWS/ECS", "CPUUtilization", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       { type = "metric", x = 8, y = 12, width = 8, height = 6,
         properties = {
-          title = "ECS — Memory Utilization",
+          title   = "ECS — Memory Utilization",
           metrics = [["AWS/ECS", "MemoryUtilization", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       { type = "metric", x = 16, y = 12, width = 8, height = 6,
         properties = {
-          title = "ECS — Running Task Count",
+          title   = "ECS — Running Task Count",
           metrics = [["AWS/ECS", "RunningTaskCount", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       # Row 4: ALB
       { type = "metric", x = 0, y = 18, width = 8, height = 6,
         properties = {
-          title = "ALB — Request Count",
+          title   = "ALB — Request Count",
           metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Sum" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       { type = "metric", x = 8, y = 18, width = 8, height = 6,
         properties = {
-          title = "ALB — Target Response Time",
+          title   = "ALB — Target Response Time",
           metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Average" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       { type = "metric", x = 16, y = 18, width = 8, height = 6,
         properties = {
-          title = "ALB — Healthy Host Count",
+          title   = "ALB — Healthy Host Count",
           metrics = [["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Average" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       # Row 5: DynamoDB
@@ -899,31 +976,31 @@ locals {
       },
       { type = "metric", x = 12, y = 24, width = 12, height = 6,
         properties = {
-          title = "DynamoDB — System Errors",
+          title   = "DynamoDB — System Errors",
           metrics = [["AWS/DynamoDB", "SystemErrors", "TableName", var.table_names.dictionary, { stat = "Sum" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       # Row 6: Lambda
       { type = "metric", x = 0, y = 30, width = 8, height = 6,
         properties = {
-          title = "Lambda — Invocations",
+          title   = "Lambda — Invocations",
           metrics = [["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_names.dictionary, { stat = "Sum" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       { type = "metric", x = 8, y = 30, width = 8, height = 6,
         properties = {
-          title = "Lambda — Duration",
+          title   = "Lambda — Duration",
           metrics = [["AWS/Lambda", "Duration", "FunctionName", var.lambda_function_names.dictionary, { stat = "Average" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
       { type = "metric", x = 16, y = 30, width = 8, height = 6,
         properties = {
-          title = "Lambda — Errors",
+          title   = "Lambda — Errors",
           metrics = [["AWS/Lambda", "Errors", "FunctionName", var.lambda_function_names.dictionary, { stat = "Sum" }]],
-          view = "timeSeries"
+          view    = "timeSeries"
         }
       },
     ]

@@ -15,3 +15,9 @@ variable "aws_endpoint_url" {
   type        = string
   default     = ""
 }
+
+variable "mcp_image_tag" {
+  description = "Docker image tag for the MCP server ECS task. Passed from CI/CD."
+  type        = string
+  default     = "latest"
+}

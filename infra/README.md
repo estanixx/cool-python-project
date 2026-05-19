@@ -189,3 +189,45 @@ This allows the same Lambda code to route to Floci (local) or AWS (prod) based o
 | Dictionary | `Word` (S) | `definition` (S) |
 | Product | `uuid` (S) | `name` (S), `price` (N) |
 | ShoppingCart | `UUID` (S) | `product_ids` (List) |
+
+## ECS Production Deployment (Fargate)
+
+The `prod/` environment optionally deploys an ECS Fargate service behind an ALB (when `enable_alb = true`). This is used for the MCP server (`mcp-server/`).
+
+### How it works
+
+The ECS task definition references the MCP server image via a **variable tag**:
+
+```hcl
+image = "${aws_ecr_repository.mcp_server[0].repository_url}:${var.mcp_image_tag}"
+```
+
+This avoids the circular dependency problem — Terraform never needs to resolve a data source at plan time. The tag is resolved by the CD pipeline (`cd.yml`):
+
+| Scenario | `build-and-push` result | Tag passed to Terraform | Effect |
+|----------|------------------------|------------------------|--------|
+| Code changed | `success` | `${{ github.sha }}` | New image pushed → new tag → Terraform creates new task definition → **ECS auto-deploy** ✅ |
+| Infra-only change | `skipped` | Currently deployed tag (queried from ECS) | Terraform sees no image change → applies infra changes without touching ECS task ✅ |
+| First deploy | `success` | `${{ github.sha }}` | Terraform doesn't need the image to exist at plan time — only ECS needs it at runtime ✅ |
+
+### Image tags in ECR
+
+The ECR repository uses `image_tag_mutability = "IMMUTABLE"`. Each deploy pushes a **single tag** (`${{ github.sha }}`), never `latest`. This means:
+
+- Every tag is unique and never overwritten
+- No risk of overwriting a deployed tag
+- Git SHA doubles as the image tag — full traceability from commit to running container
+
+### First-time deploy
+
+There is **no manual bootstrap needed** — the CD pipeline handles everything automatically:
+
+1. `build-and-push` pushes the image to ECR (the repo either exists or Terraform creates it)
+2. `deploy` runs `terraform apply -var="mcp_image_tag=${{ github.sha }}"` which creates the repo (if needed), task definition, service, etc.
+3. ECS pulls the image and starts the service
+
+### Key details
+
+- The ECS repository uses `IMMUTABLE` tags — you cannot overwrite a tag once pushed. This is why `latest` is **never used**. Every deploy uses the commit SHA as the image tag.
+- `terraform plan` does **not** validate that the image tag exists in ECR. Validation happens at runtime when ECS tries to pull the image. This is why a non-existent tag won't fail `terraform apply`, but will fail the ECS service deployment.
+- If `build-and-push` is skipped (no code changes), the deploy job queries the **currently deployed ECS task definition** for its image tag and passes it to Terraform. This prevents Terraform from creating a task definition with a non-existent image tag.
