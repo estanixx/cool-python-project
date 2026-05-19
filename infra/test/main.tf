@@ -110,6 +110,16 @@ data "archive_file" "word_trick" {
     content  = file("${local.backend_root}/utils/shopping.py")
     filename = "api/utils/shopping.py"
   }
+
+  source {
+    content  = "# Package marker\n"
+    filename = "api/__init__.py"
+  }
+
+  source {
+    content  = "# Handlers package — no eager imports\n"
+    filename = "api/handlers/__init__.py"
+  }
 }
 
 module "crud" {
