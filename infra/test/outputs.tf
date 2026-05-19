@@ -17,3 +17,8 @@ output "api_endpoint" {
   description = "API Gateway HTTP endpoint."
   value       = module.crud.api_endpoint
 }
+
+output "api_id" {
+  description = "API Gateway ID."
+  value       = module.crud.api_id
+}
