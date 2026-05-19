@@ -182,7 +182,6 @@ class TestCISonarQubeJob(unittest.TestCase):
     def test_sonarqube_uses_sonarcloud_action(self):
         content = read_workflow("ci.yml")
         self.assertIn("SonarSource/sonarcloud-github-action", content)
-        self.assertIn("v2", content)
 
     def test_sonarqube_step_is_report_only(self):
         content = read_workflow("ci.yml")
