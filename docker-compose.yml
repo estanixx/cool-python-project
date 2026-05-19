@@ -23,7 +23,7 @@ services:
         condition: service_healthy
     volumes:
       - ./infra:/infra
-      - ./.env.local:/shared/.env
+      - shared-env:/shared
     environment:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
@@ -33,11 +33,12 @@ services:
     build: ./mcp-server
     ports:
       - "8000:8000"
-    env_file: .env.local
     depends_on:
       terraform-setup:
         condition: service_completed_successfully
     restart: unless-stopped
+    volumes:
+      - shared-env:/shared:ro
 
   website:
     build:
@@ -45,13 +46,14 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
-    env_file: .env.local
     depends_on:
       terraform-setup:
         condition: service_completed_successfully
     restart: unless-stopped
     volumes:
-      # Mount source for hot reload
+      - shared-env:/shared:ro
       - ./website:/app
-      # Exclude node_modules from host mount
       - /app/node_modules
+
+volumes:
+  shared-env:

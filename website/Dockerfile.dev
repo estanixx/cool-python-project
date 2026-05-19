@@ -9,8 +9,12 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Copy entrypoint
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+
+# Entrypoint sources shared env vars from terraform-setup
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["npm", "run", "dev"]
+
 # Expose Next.js dev port
 EXPOSE 3000
-
-# Hot-reload dev server
-CMD ["npm", "run", "dev"]
