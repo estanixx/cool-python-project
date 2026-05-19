@@ -1,203 +1,140 @@
-# Serverless CRUD + MCP Server
+# Cool Python Project
 
-A serverless Python backend with Lambda functions, DynamoDB storage, and an MCP (Model Context Protocol) server that exposes CRUD operations as AI-accessible tools.
-
-## Architecture
+Full-stack serverless application: Python Lambda API + Next.js frontend + MCP server, deployed to AWS.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        AI Client                             │
-│              (Claude, Cursor, OpenCode, etc.)                │
-└────────────────────────┬────────────────────────────────────┘
-                         │ SSE Transport
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     MCP Server                               │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │Dictionary│  │ Product  │  │   Cart   │  │Word Trick│    │
-│  │  Tools   │  │  Tools   │  │  Tools   │  │  Tool    │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTP / Direct Lambda
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    API Gateway / Lambda                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │Dictionary│  │ Product  │  │   Cart   │  │Word Trick│    │
-│  │ Handler  │  │ Handler  │  │ Handler  │  │ Handler  │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
-└────────────────────────┬────────────────────────────────────┘
-                         │ boto3
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      DynamoDB                                │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
-│  │Dictionary│  │ Product  │  │   Cart   │                  │
-│  │  Table   │  │  Table   │  │  Table   │                  │
-│  └──────────┘  └──────────┘  └──────────┘                  │
-└─────────────────────────────────────────────────────────────┘
+ User / AI Client
+      │
+      ├── Browser ──► Next.js SSR (Amplify) ──► API Gateway ──► Lambda ──► DynamoDB
+      │
+      └── AI Client ──► MCP Server (ECS) ─────► API Gateway ──► Lambda ──► DynamoDB
 ```
 
-## Quick Start
+## Quick Start (Full Stack Dev)
 
-### Prerequisites
-- **Docker** + **Docker Compose**
-- **Python 3.11+**
-- **Terraform** (for infrastructure)
-
-### 1. Start Local Infrastructure
 ```bash
+# Start everything: Floci → Terraform → MCP Server → Website
 docker-compose up -d
+
+# Website: http://localhost:3000
+# MCP Server: http://localhost:8000/sse
 ```
 
-### 2. Deploy Infrastructure (Local)
-```bash
-terraform -chdir=infra/test init
-terraform -chdir=infra/test apply
-```
-
-### 3. Run Tests
-```bash
-pip install pytest
-python -m pytest api/tests/ -v
-```
-
-### 4. Start MCP Server
-```bash
-cd mcp-server
-pip install -r requirements.txt
-python mcp_server.py
-```
-
-The MCP server will be available at `http://localhost:8000/sse`.
+The terraform-setup container auto-deploys local infrastructure (DynamoDB tables, Lambda functions, API Gateway) to Floci, a LocalStack-compatible AWS emulator.
 
 ## Project Structure
 
 ```
-├── api/                          # Backend application
-│   ├── dal/                      # Data Access Layer (DAOs)
-│   ├── handlers/                 # Lambda entry points
-│   ├── utils/                    # Domain classes & utilities
+├── api/                          # Python Lambda backend
+│   ├── dal/                      # DynamoDB Data Access Layer
+│   ├── handlers/                 # Lambda entry points (4 handlers)
+│   ├── utils/                    # Domain classes
 │   └── tests/                    # Unit & integration tests
-├── mcp-server/                   # MCP server for AI integration
-│   ├── mcp_server.py             # FastMCP server implementation
-│   ├── Dockerfile                # Container definition
-│   └── requirements.txt          # Python dependencies
-├── infra/                        # Infrastructure as Code (Terraform)
-│   ├── modules/crud/             # Reusable infrastructure module
-│   ├── test/                     # Local environment (Floci)
-│   └── prod/                     # Production environment (AWS)
-├── docker-compose.yml            # Local services orchestration
-└── README.md                     # This file
+├── website/                      # Next.js 14 SSR frontend
+│   ├── app/                      # App Router pages + API proxy
+│   ├── components/               # Client components (shadcn/ui)
+│   └── lib/                      # API client, utilities
+├── mcp-server/                   # MCP server (FastMCP + Uvicorn)
+├── infra/                        # Terraform infrastructure
+│   ├── modules/crud/             # Reusable module (DynamoDB, Lambda, API GW)
+│   ├── test/                     # Local dev environment (Floci)
+│   ├── prod/                     # Production AWS environment
+│   ├── Dockerfile.terraform      # Init container for local infra
+│   └── docker-entrypoint-terraform.sh
+├── .github/                      # CI/CD pipelines
+│   ├── workflows/ci.yml          # Tests, Terraform, SonarQube, Trivy
+│   ├── workflows/cd.yml          # Deploy to AWS production
+│   └── workflows/codeql.yml      # Security analysis
+├── amplify.yml                   # Amplify build spec (appRoot: website)
+├── docker-compose.yml            # Local dev stack
+└── README.md
 ```
 
 ## Key Components
 
 ### API (`api/`)
 Serverless Lambda functions handling CRUD operations for:
-- **Dictionary** — Word definitions
+- **Dictionary** — Word definitions (`Word` partition key)
 - **Product** — E-commerce products with UUIDs
 - **Shopping Cart** — Carts storing full product snapshots
-- **Word Trick** — String manipulation utility
+- **Word Trick** — String manipulation (stateless)
 
 See [API README](api/README.md) for detailed documentation.
 
+### Website (`website/`)
+Next.js 14 App Router SSR application with shadcn/ui components:
+- **Dictionary** — Add, list, and lookup word definitions
+- **Shopping** — Browser products, manage cart with local state
+- **Word Trick** — Apply word-trick algorithm
+
+See [Website README](website/README.md) for frontend docs.
+
 ### MCP Server (`mcp-server/`)
-Exposes all API operations as MCP tools accessible by AI clients:
-- 20 tools across 4 domains
-- SSE transport for broad client compatibility
-- Dual-mode product addition (snapshot or auto-fetch)
+Exposes all API operations as 21 MCP tools across 4 domains via SSE transport. Dual-mode product addition (snapshot or auto-fetch).
 
 See [MCP Server README](mcp-server/README.md) for tool reference.
 
 ### Infrastructure (`infra/`)
 Terraform-managed infrastructure with environment separation:
 - **test/** — Local deployment via Floci (Docker-based AWS emulator)
-- **prod/** — Real AWS deployment (DynamoDB, Lambda, API Gateway, ECS)
+- **prod/** — Real AWS deployment (DynamoDB, Lambda, API Gateway, ECS, Amplify)
 
 See [Infrastructure README](infra/README.md) for deployment guide.
 
-## Adding New Features
+### CI/CD (`.github/workflows/`)
+- **CI** — Python tests, TypeScript check, Terraform validate, Trivy scan, SonarQube, OpenAPI lint
+- **CD** — Deploy infra to AWS on push to `main`
+- **CodeQL** — Weekly security analysis
 
-### 1. Define the Domain Model
-Create or update classes in `api/utils/`:
-```python
-# api/utils/my_feature.py
-class MyFeature:
-    def __init__(self, ...): ...
-    def to_dict(self) -> dict: ...
-    @staticmethod
-    def from_dict(data: dict) -> "MyFeature": ...
-```
+See [Workflows README](.github/workflows/README.md) for details.
 
-### 2. Create the DAO
-Add a new DAO in `api/dal/`:
-```python
-# api/dal/my_feature_dao.py
-class MyFeatureDAO:
-    def create(self, ...) -> dict: ...
-    def read(self, ...) -> dict: ...
-    def update(self, ...) -> dict: ...
-    def delete(self, ...) -> dict: ...
-    def list_all(self) -> list: ...
-```
+## Amplify Deployment
 
-### 3. Create the Lambda Handler
-Add a handler in `api/handlers/`:
-```python
-# api/handlers/my_feature_handler.py
-def handler(event, context):
-    operation, payload = parse_event(event or {})
-    dao = MyFeatureDAO(get_dynamodb_resource())
-    # Route operations...
-```
+The frontend auto-deploys to AWS Amplify (WEB_COMPUTE SSR) on push.
 
-### 4. Update Infrastructure
-- Add DynamoDB table in `infra/modules/crud/main.tf`
-- Add Lambda function and API Gateway routes
-- Update `infra/test/main.tf` and `infra/prod/main.tf` with zip artifacts
+- Build spec at `amplify.yml` with `appRoot: website`
+- `baseDirectory: .next` — standard Next.js SSR output
+- Production API URL set via Terraform env vars (`NEXT_PUBLIC_API_URL`)
+- API Gateway CORS configured for Amplify origins
 
-### 5. Add MCP Tools
-Add tools in `mcp-server/mcp_server.py`:
-```python
-@mcp.tool()
-def my_feature_create(...) -> CallToolResult:
-    return _call_api("POST", "/my-feature", {...})
-```
+The Terraform-managed Amplify app is in `infra/prod/amplify.tf`.
 
-### 6. Write Tests
-- Unit tests in `api/tests/test_my_feature.py`
-- Integration tests in `api/tests/test_my_feature_integration.py`
+## Dev Environment (Docker Compose)
 
-### 7. Deploy & Verify
 ```bash
-terraform -chdir=infra/test apply
-python -m pytest api/tests/ -v
-docker-compose down mcp-server && docker-compose build mcp-server && docker-compose up -d mcp-server
+docker-compose up -d
 ```
 
-## Testing Strategy
+Starts 4 services:
+1. **floci** — LocalStack-compatible AWS emulator (DynamoDB, Lambda)
+2. **terraform-setup** — Init container that deploys infra to Floci
+3. **mcp-server** — FastMCP server at `:8000/sse`
+4. **website** — Next.js dev server at `:3000` (hot reload via volume mount)
 
-| Test Type | Location | Purpose |
-|-----------|----------|---------|
-| Unit tests | `api/tests/test_*_unit.py` | Test DAOs, handlers, utils in isolation |
-| Integration tests | `api/tests/test_*_integration.py` | Test against real DynamoDB (Floci) |
-| Handler unit tests | `api/tests/test_handlers_unit.py` | Test operation routing with mocked DAOs |
+Infra details: [Infrastructure README → Dev Workflow](infra/README.md#workflow)
 
-Run all tests:
+## Testing
+
+### Backend (Python)
 ```bash
-python -m pytest api/tests/ -v
+python -m unittest discover -s api/tests -p "test_*.py" -v
+```
+
+### Frontend (TypeScript)
+```bash
+cd website && npx tsc --noEmit
+cd website && npx vitest run
 ```
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STAGE` | `local` | Deployment stage (`local` or `prod`) |
-| `AWS_ENDPOINT_URL` | `http://localhost:4566` | DynamoDB endpoint override |
-| `API_BASE_URL` | `http://localhost:4566` | MCP server API base URL |
-| `API_ID` | `""` | API Gateway ID (empty = direct Lambda) |
-| `CART_TAX_RATE` | `0.07` | Default tax rate for cart totals |
+| Variable | Default | Scope | Description |
+|----------|---------|-------|-------------|
+| `STAGE` | `local` | Lambda | Deployment stage |
+| `AWS_ENDPOINT_URL` | `http://localhost:4566` | Lambda | DynamoDB endpoint |
+| `API_BASE_URL` | `http://floci:4566` | Proxy/Dev | Lambda invocation endpoint |
+| `API_ID` | `""` | Proxy/Dev | API Gateway ID |
+| `NEXT_PUBLIC_API_URL` | `/api/proxy` | Website | API endpoint for browser calls |
 
 ## License
 

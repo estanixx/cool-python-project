@@ -17,12 +17,13 @@ services:
   terraform-setup:
     build:
       context: .
-      dockerfile: Dockerfile.terraform
+      dockerfile: infra/Dockerfile.terraform
     depends_on:
       floci:
         condition: service_healthy
     volumes:
       - ./infra:/infra
+      - ./api:/api
       - shared-env:/shared
     environment:
       - AWS_ACCESS_KEY_ID=test

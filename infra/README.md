@@ -5,19 +5,22 @@
 ```
 infra/
 ├── modules/
-│   └── crud/              ← Reusable module (WHAT to deploy)
-│       ├── main.tf        ←   DynamoDB, IAM, Lambda, API Gateway
-│       ├── variables.tf   ←   Input parameters
-│       └── outputs.tf     ←   Output values (ARNs, endpoints)
-├── test/                  ← Local environment (WHERE — Floci)
-│   ├── main.tf            ←   Invokes "crud" module with stage=local + auto-zip
-│   ├── providers.tf       ←   AWS provider → Floci (localhost:4566)
-│   ├── variables.tf       ←   Variables with local defaults
-│   └── terraform.tfvars   ←   Concrete values for local
-└── prod/                  ← Production environment (WHERE — AWS real)
-    ├── main.tf            ←   Invokes "crud" module with stage=prod + auto-zip
-    ├── providers.tf       ←   AWS provider → AWS real (no overrides)
-    └── variables.tf       ←   Variables with production defaults
+│   └── crud/                 ← Reusable module (WHAT to deploy)
+│       ├── main.tf           ←   DynamoDB, IAM, Lambda, API Gateway, Amplify
+│       ├── variables.tf      ←   Input parameters
+│       └── outputs.tf        ←   Output values (ARNs, endpoints)
+├── test/                     ← Local environment (WHERE — Floci)
+│   ├── main.tf               ←   Invokes "crud" module with stage=local + auto-zip
+│   ├── providers.tf          ←   AWS provider → Floci (localhost:4566)
+│   ├── variables.tf          ←   Variables with local defaults
+│   └── terraform.tfvars      ←   Concrete values for local
+├── prod/                     ← Production environment (WHERE — AWS real)
+│   ├── main.tf               ←   Invokes "crud" module with stage=prod + auto-zip
+│   ├── amplify.tf            ←   AWS Amplify app + branch for frontend
+│   ├── providers.tf          ←   AWS provider → AWS real (no overrides)
+│   └── variables.tf          ←   Variables with production defaults
+├── Dockerfile.terraform      ←   Init container for local infra deploy
+└── docker-entrypoint-terraform.sh
 ```
 
 ## What Each Directory Does
@@ -174,13 +177,16 @@ environment {
 
 This allows the same Lambda code to route to Floci (local) or AWS (prod) based on environment variables.
 
-## Main Variables
+## Module Variables
 
-| Variable | Default (test) | Default (prod) | Description |
-|----------|----------------|----------------|-------------|
-| `stage` | `local` | `prod` | Deployment environment |
-| `aws_region` | `us-east-1` | `us-east-1` | AWS region |
-| `aws_endpoint_url` | `http://localhost:4566` | `""` | Override for Floci |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `stage` | `local` | Deployment environment |
+| `aws_region` | `us-east-1` | AWS region |
+| `aws_endpoint_url` | `""` | Override for Floci (local dev) |
+| `enable_alb` | `false` | Provision ALB + ECS for MCP server |
+| `mcp_image_tag` | `"latest"` | ECS container image tag |
+| `api_gateway_cors_origins` | `["*"]` | Allowed CORS origins for API Gateway — restrict to Amplify domain in prod |
 
 ## DynamoDB Tables
 
@@ -189,6 +195,28 @@ This allows the same Lambda code to route to Floci (local) or AWS (prod) based o
 | Dictionary | `Word` (S) | `definition` (S) |
 | Product | `uuid` (S) | `name` (S), `price` (N) |
 | ShoppingCart | `UUID` (S) | `product_ids` (List) |
+
+## Lambda Functions
+
+| Name | Handler | Source |
+|------|---------|--------|
+| `dictionary-{stage}` | `api.handlers.dictionary_handler.handler` | `api/handlers/` |
+| `product-{stage}` | `api.handlers.product_handler.handler` | `api/handlers/` |
+| `shopping-cart-{stage}` | `api.handlers.shopping_cart_handler.handler` | `api/handlers/` |
+| `word-trick-{stage}` | `api.handlers.word_trick_handler.handler` | `api/handlers/` |
+
+Each Lambda zip includes its handler + all shared DAL modules + `__init__.py` files.
+
+## AWS Amplify
+
+The `prod/` environment creates an Amplify app for the Next.js frontend:
+
+- **Platform**: `WEB_COMPUTE` (SSR)
+- **Repository**: GitHub (`estanixx/cool-python-project`)
+- **Build spec**: `amplify.yml` (repo root, `appRoot: website`)
+- **Branch**: `feat/website-and-deployment` (update to `main` after merge)
+- **Auto-build**: Enabled on push
+- **Env vars**: `NEXT_PUBLIC_API_URL` set to API Gateway invoke URL
 
 ## ECS Production Deployment (Fargate)
 

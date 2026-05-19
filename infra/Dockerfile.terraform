@@ -1,0 +1,10 @@
+FROM hashicorp/terraform:1.9
+
+# Install curl for health checks (Alpine base, not in the image)
+RUN apk add --no-cache curl
+
+# Init container: deploys test infra and writes env vars to /shared/.env
+COPY docker-entrypoint-terraform.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
