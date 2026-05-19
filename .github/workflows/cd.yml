@@ -69,6 +69,16 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Ensure ECR repository exists
+        run: |
+          terraform -chdir=infra/prod init
+          terraform -chdir=infra/prod apply \
+            -target=module.crud.aws_ecr_repository.mcp_server[0] \
+            -refresh=false -auto-approve
+
       - name: Build and push Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
