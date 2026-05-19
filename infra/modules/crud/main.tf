@@ -886,6 +886,7 @@ locals {
         properties = {
           title   = "MCP Tool Calls",
           metrics = [["MCP/Server", "ToolCalls", { stat = "Sum", period = 300 }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -893,6 +894,7 @@ locals {
         properties = {
           title   = "MCP Tool Errors",
           metrics = [["MCP/Server", "ToolErrors", { stat = "Sum", period = 300 }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -901,6 +903,7 @@ locals {
         properties = {
           title   = "API Gateway — Count",
           metrics = [["AWS/ApiGateway", "Count", "ApiName", "serverless-crud-${var.stage}", { stat = "Sum" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -908,6 +911,7 @@ locals {
         properties = {
           title   = "API Gateway — Latency",
           metrics = [["AWS/ApiGateway", "Latency", "ApiName", "serverless-crud-${var.stage}", { stat = "Average" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -918,6 +922,7 @@ locals {
             ["AWS/ApiGateway", "4xx", "ApiName", "serverless-crud-${var.stage}", { stat = "Sum" }],
             [".", "5xx", ".", ".", { stat = "Sum" }]
           ],
+          region = var.aws_region
           view = "timeSeries"
         }
       },
@@ -926,6 +931,7 @@ locals {
         properties = {
           title   = "ECS — CPU Utilization",
           metrics = [["AWS/ECS", "CPUUtilization", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -933,6 +939,7 @@ locals {
         properties = {
           title   = "ECS — Memory Utilization",
           metrics = [["AWS/ECS", "MemoryUtilization", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -940,6 +947,7 @@ locals {
         properties = {
           title   = "ECS — Running Task Count",
           metrics = [["AWS/ECS", "RunningTaskCount", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -948,6 +956,7 @@ locals {
         properties = {
           title   = "ALB — Request Count",
           metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Sum" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -955,6 +964,7 @@ locals {
         properties = {
           title   = "ALB — Target Response Time",
           metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Average" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -962,6 +972,7 @@ locals {
         properties = {
           title   = "ALB — Healthy Host Count",
           metrics = [["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Average" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -973,6 +984,7 @@ locals {
             ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", var.table_names.dictionary, { stat = "Sum" }],
             [".", "ConsumedWriteCapacityUnits", ".", ".", { stat = "Sum" }]
           ],
+          region = var.aws_region
           view = "timeSeries"
         }
       },
@@ -980,6 +992,7 @@ locals {
         properties = {
           title   = "DynamoDB — System Errors",
           metrics = [["AWS/DynamoDB", "SystemErrors", "TableName", var.table_names.dictionary, { stat = "Sum" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -988,6 +1001,7 @@ locals {
         properties = {
           title   = "Lambda — Invocations",
           metrics = [["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_names.dictionary, { stat = "Sum" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -995,6 +1009,7 @@ locals {
         properties = {
           title   = "Lambda — Duration",
           metrics = [["AWS/Lambda", "Duration", "FunctionName", var.lambda_function_names.dictionary, { stat = "Average" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },
@@ -1002,6 +1017,7 @@ locals {
         properties = {
           title   = "Lambda — Errors",
           metrics = [["AWS/Lambda", "Errors", "FunctionName", var.lambda_function_names.dictionary, { stat = "Sum" }]],
+          region  = var.aws_region
           view    = "timeSeries"
         }
       },

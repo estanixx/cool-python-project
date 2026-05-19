@@ -6,8 +6,11 @@ Instead, we invoke Lambdas directly via the Lambda API:
 
 Transport: SSE (Server-Sent Events) for remote MCP clients.
 """
+import inspect
 import json
+import logging
 import os
+import time
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +18,8 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, TextContent
+
+logger = logging.getLogger("mcp_server")
 
 # Disable DNS rebinding protection so the server works behind an ALB
 # (the ALB's Host header won't match localhost)
@@ -110,6 +115,7 @@ def _call_api(
         }
 
         invoke_url = f"{LAMBDA_INVOKE_URL}/{function_name}/invocations"
+        start = time.monotonic()
         response = httpx.request(
             method="POST",
             url=invoke_url,
@@ -117,12 +123,28 @@ def _call_api(
             headers={"Content-Type": "application/json"},
             timeout=10.0,
         )
+        duration_ms = round((time.monotonic() - start) * 1000)
         status_code = response.status_code
 
         try:
             payload = response.json()
         except json.JSONDecodeError:
             payload = {"raw": response.text}
+
+        # Structured log — best effort, never breaks the call
+        try:
+            frame = inspect.currentframe()
+            caller = frame.f_back.f_code.co_name if frame and frame.f_back else "unknown"
+            logger.info(json.dumps({
+                "level":   "info",
+                "tool":    caller,
+                "method":  method,
+                "path":    path,
+                "status":  status_code,
+                "duration_ms": duration_ms,
+            }))
+        except Exception:
+            pass
 
         if status_code >= 400:
             message = payload.get("error", "api error")

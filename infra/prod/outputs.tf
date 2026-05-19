@@ -24,6 +24,6 @@ output "amplify_app_id" {
 }
 
 output "amplify_branch_url" {
-  description = "AWS Amplify branch URL for the deployed website."
-  value       = "https://${aws_amplify_branch.website_main.branch_name}.${aws_amplify_app.website.id}.amplifyapp.com"
+  description = "AWS Amplify app URL. Actual URL depends on the branch connected via Amplify Console."
+  value       = "https://main.${aws_amplify_app.website.id}.amplifyapp.com"
 }
