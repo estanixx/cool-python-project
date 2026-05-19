@@ -11,17 +11,17 @@ export default function HomePage() {
         <div className="flex flex-col gap-4">
           <Link href="/dictionary">
             <Button variant="outline" className="w-48">
-              📖 Book
+              📖 Dictionary
             </Button>
           </Link>
           <Link href="/shopping">
             <Button variant="outline" className="w-48">
-              🛒 Cart
+              🛒 Shopping
             </Button>
           </Link>
           <Link href="/word-trick">
             <Button variant="outline" className="w-48">
-              🔤 Letter
+              🔤 Word Trick
             </Button>
           </Link>
         </div>
