@@ -2,15 +2,19 @@
 #
 # The repository is linked via a GitHub Personal Access Token stored in
 # GitHub Secrets (GH_PAT) and passed as var.github_token during terraform apply.
-# Auto-build is DISABLED — builds are triggered manually via GitHub Actions
-# when website/ files change (see .github/workflows/deploy-amplify.yml).
+# Auto-build is DISABLED — builds are triggered from the CD workflow
+# when website/ files change (see .github/workflows/cd.yml, job: deploy-amplify).
 
 resource "aws_amplify_app" "website" {
-  name       = "cool-python-project-website"
-  repository = "https://github.com/estanixx/cool-python-project"
-  access_token = var.github_token
+  name = "cool-python-project-website"
 
-  platform                   = "WEB_COMPUTE"
+  # Only link the repository when github_token is provided (non-empty).
+  # When empty/token not set, the app is created without a repo link,
+  # and you must connect via the Amplify Console manually.
+  repository   = var.github_token != "" ? "https://github.com/estanixx/cool-python-project" : null
+  access_token = var.github_token != "" ? var.github_token : null
+
+  platform                    = "WEB_COMPUTE"
   enable_auto_branch_creation = false
 
   build_spec = <<-EOT

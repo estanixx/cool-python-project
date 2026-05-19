@@ -23,7 +23,8 @@ variable "mcp_image_tag" {
 }
 
 variable "github_token" {
-  description = "GitHub Personal Access Token with repo scope for Amplify repo linking. Store in GitHub Secrets as GH_PAT."
+  description = "GitHub Personal Access Token with repo scope for Amplify repo linking. Store in GitHub Secrets as GH_PAT. Pass empty string to skip repo linking."
   type        = string
   sensitive   = true
+  default     = ""
 }
