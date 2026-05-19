@@ -27,7 +27,15 @@ export async function api<T>(
     ...options,
   });
 
-  const envelope: { statusCode: number; body: unknown } = await res.json();
+  const rawText = await res.text();
+  let envelope: { statusCode: number; body: unknown };
+  try {
+    envelope = JSON.parse(rawText);
+  } catch {
+    throw new Error(
+      `Invalid JSON from API (status ${res.status}): ${rawText.slice(0, 500)}`,
+    );
+  }
 
   // API Gateway v2: body is a JSON string that needs a second parse
   let body: unknown;

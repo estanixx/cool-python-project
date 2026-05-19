@@ -34,7 +34,26 @@ def handler(event, context):  # pylint: disable=unused-argument
 
 
 def _response(status_code: int, body: dict) -> dict:
-    return {"statusCode": status_code, "body": json.dumps(body)}
+    """Normalize DynamoDB field casing before returning.
+
+    DynamoDB uses "Word" (capital W) as the hash key, but frontend
+    code universally expects lowercase "word". Normalize any item
+    or list of items returned by the DAO.
+    """
+    normalized = _normalize_keys(body)
+    return {"statusCode": status_code, "body": json.dumps(normalized)}
+
+
+def _normalize_keys(obj):
+    """Recursively map 'Word' → 'word' in dicts."""
+    if isinstance(obj, dict):
+        return {
+            ("word" if k == "Word" else k): _normalize_keys(v)
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_normalize_keys(item) for item in obj]
+    return obj
 
 
 def _error(status_code: int, message: str) -> dict:

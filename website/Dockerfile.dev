@@ -11,6 +11,7 @@ COPY . .
 
 # Copy entrypoint
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Entrypoint sources shared env vars from terraform-setup
 ENTRYPOINT ["/docker-entrypoint.sh"]

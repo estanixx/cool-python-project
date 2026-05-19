@@ -1,9 +1,13 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
+    "serverless-prod": {
+      "type": "remote",
+      "url": "http://mcp-alb-prod-493146066.us-east-1.elb.amazonaws.com/sse"
+    },
     "serverless-dev": {
       "type": "remote",
-      "url": "http://mcp-alb-prod-1817039186.us-east-1.elb.amazonaws.com/sse"
+      "url": "http://localhost:8000/sse"
     }
   }
 }

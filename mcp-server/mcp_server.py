@@ -1,9 +1,14 @@
-"""MCP server exposing CRUD tools via HTTP API calls.
+"""MCP server exposing CRUD tools via direct Lambda invocation.
+
+Floci v1.5.16 (LocalStack) does NOT support API Gateway v2 HTTP invocation.
+Instead, we invoke Lambdas directly via the Lambda API:
+  POST /2015-03-31/functions/{name}/invocations
 
 Transport: SSE (Server-Sent Events) for remote MCP clients.
 """
 import json
 import os
+import uuid
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -20,17 +25,20 @@ mcp = FastMCP(
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
-# Configuration: API base URL and API ID (from Floci/AWS)
+# Configuration
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:4566")
 API_ID = os.getenv("API_ID", "")
+STAGE = os.getenv("STAGE", "local")
 
-# Resolve full API Gateway URL
-if "execute-api" in API_BASE_URL:
-    # Real AWS API Gateway v2 — base URL is the invoke endpoint
-    API_ENDPOINT = API_BASE_URL.rstrip("/")
-else:
-    # Floci/LocalStack format
-    API_ENDPOINT = f"{API_BASE_URL}/restapis/{API_ID}/_user_request_"
+LAMBDA_INVOKE_URL = f"{API_BASE_URL}/2015-03-31/functions"
+
+# Map the first path segment to the Lambda function name
+PATH_TO_FUNCTION: Dict[str, str] = {
+    "dictionary": f"dictionary-{STAGE}",
+    "product": f"product-{STAGE}",
+    "shopping-cart": f"shopping-cart-{STAGE}",
+    "word-trick": f"word-trick-{STAGE}",
+}
 
 
 def _call_api(
@@ -39,21 +47,78 @@ def _call_api(
     body: Optional[Dict[str, Any]] = None,
     query_params: Optional[Dict[str, str]] = None,
 ) -> CallToolResult:
-    """Make an HTTP request to the API and return an MCP tool result."""
+    """Invoke the correct Lambda directly via Floci's Lambda API.
+
+    Constructs an API Gateway v2 event envelope so the Lambda handler
+    receives exactly the same format as it would from real API Gateway.
+    """
     try:
-        # API Gateway (real AWS or Floci) — send standard HTTP request
-        url = f"{API_ENDPOINT}{path}"
+        # Resolve Lambda function name from the path
+        seg = path.strip("/").split("/")[0]
+        function_name = PATH_TO_FUNCTION.get(seg, f"{seg}-{STAGE}")
+
+        # Build the query string
+        query_string = ""
         if query_params:
-            qs = "&".join(f"{k}={v}" for k, v in query_params.items())
-            url = f"{url}?{qs}"
+            query_string = "&".join(f"{k}={v}" for k, v in query_params.items())
+
+        # Extract path segments to build pathParameters and queryStringParameters
+        segments = path.strip("/").split("/")
+        path_params: Optional[Dict[str, str]] = None
+        if len(segments) > 1:
+            param_name = {
+                "dictionary": "word",
+                "product": "product_id",
+                "shopping-cart": "cart_id",
+            }.get(segments[0])
+            if param_name:
+                path_params = {param_name: segments[1]}
+
+        query_params_parsed: Optional[Dict[str, str]] = None
+        if query_params and len(query_params) > 0:
+            query_params_parsed = dict(query_params)
+
+        # Build API Gateway v2 event envelope
+        raw_path = path
+        event = {
+            "version": "2.0",
+            "routeKey": f"{method.upper()} {raw_path}",
+            "rawPath": raw_path,
+            "rawQueryString": query_string,
+            "headers": {
+                "Content-Type": "application/json",
+            },
+            "requestContext": {
+                "accountId": "000000000000",
+                "apiId": API_ID,
+                "stage": "$default",
+                "domainName": f"{API_ID}.execute-api.{os.getenv('AWS_DEFAULT_REGION', 'us-east-1')}.amazonaws.com",
+                "domainPrefix": API_ID,
+                "requestId": str(uuid.uuid4()),
+                "http": {
+                    "method": method.upper(),
+                    "path": raw_path,
+                    "protocol": "HTTP/1.1",
+                    "sourceIp": "127.0.0.1",
+                    "userAgent": "mcp-server",
+                },
+            },
+            "pathParameters": path_params,
+            "queryStringParameters": query_params_parsed,
+            "body": json.dumps(body) if body is not None else None,
+            "isBase64Encoded": False,
+        }
+
+        invoke_url = f"{LAMBDA_INVOKE_URL}/{function_name}/invocations"
         response = httpx.request(
-            method=method,
-            url=url,
-            json=body,
+            method="POST",
+            url=invoke_url,
+            json=event,
             headers={"Content-Type": "application/json"},
             timeout=10.0,
         )
         status_code = response.status_code
+
         try:
             payload = response.json()
         except json.JSONDecodeError:
@@ -68,10 +133,26 @@ def _call_api(
                 _meta={"status_code": status_code},
             )
 
+        # If the Lambda returned an API Gateway envelope, check the inner status
+        lambda_status = payload.get("statusCode", 200) if isinstance(payload, dict) else 200
+        if lambda_status >= 400:
+            inner_body = payload.get("body", "{}")
+            try:
+                err_payload = json.loads(inner_body) if isinstance(inner_body, str) else inner_body
+            except json.JSONDecodeError:
+                err_payload = {"raw": inner_body}
+            message = err_payload.get("error", "api error")
+            return CallToolResult(
+                content=[TextContent(type="text", text=message)],
+                isError=True,
+                structuredContent=err_payload,
+                _meta={"status_code": lambda_status},
+            )
+
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps(payload))],
             structuredContent=payload,
-            _meta={"status_code": status_code},
+            _meta={"status_code": lambda_status},
         )
     except httpx.RequestError as exc:
         return CallToolResult(
