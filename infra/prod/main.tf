@@ -101,6 +101,7 @@ module "crud" {
   aws_region       = var.aws_region
   aws_endpoint_url = var.aws_endpoint_url
   enable_alb       = true
+  mcp_image_tag    = var.mcp_image_tag
 
   table_names = {
     dictionary    = "Dictionary"
