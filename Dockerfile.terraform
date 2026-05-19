@@ -8,7 +8,7 @@ ENTRYPOINT ["/bin/sh", "-c", "\
   echo 'Deploying test infrastructure...' && \
   cd /infra/test && \
   terraform init && \
-  terraform apply -auto-approve && \
+  terraform apply -auto-approve -var='aws_endpoint_url=http://floci:4566' && \
   API_ID=$(terraform output -raw api_id) && \
   echo \"API_ID=$API_ID\" > /shared/.env && \
   echo \"API_BASE_URL=http://floci:4566\" >> /shared/.env && \
