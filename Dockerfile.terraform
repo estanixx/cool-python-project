@@ -1,0 +1,19 @@
+FROM hashicorp/terraform:1.9
+
+# Init container: deploys test infra and writes env vars to /shared/.env
+
+ENTRYPOINT ["/bin/sh", "-c", "\
+  echo 'Waiting for Floci...' && \
+  until wget -q -O- http://floci:4566/_localstack/health > /dev/null 2>&1; do sleep 2; done && \
+  echo 'Deploying test infrastructure...' && \
+  cd /infra/test && \
+  terraform init && \
+  terraform apply -auto-approve && \
+  API_ID=$(terraform output -raw api_id) && \
+  echo \"API_ID=$API_ID\" > /shared/.env && \
+  echo \"API_BASE_URL=http://floci:4566\" >> /shared/.env && \
+  echo \"NEXT_PUBLIC_API_BASE_URL=http://floci:4566\" >> /shared/.env && \
+  echo \"NEXT_PUBLIC_API_ID=$API_ID\" >> /shared/.env && \
+  echo \"NEXT_PUBLIC_API_ENDPOINT=http://floci:4566/restapis/$API_ID/_user_request_\" >> /shared/.env && \
+  echo 'Setup complete! API_ID:' $API_ID \
+"]

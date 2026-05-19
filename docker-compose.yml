@@ -8,16 +8,50 @@ services:
       PERSISTENCE: "1"
       DOCKER_HOST: unix:///var/run/docker.sock
     volumes:
-      # Mount Docker socket so Floci can spawn Lambda containers
       - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-s", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      retries: 12
+
+  terraform-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile.terraform
+    depends_on:
+      floci:
+        condition: service_healthy
+    volumes:
+      - ./infra:/infra
+      - ./.env.local:/shared/.env
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
 
   mcp-server:
     build: ./mcp-server
     ports:
       - "8000:8000"
-    environment:
-      - API_BASE_URL=http://floci:4566
-      - API_ID=${API_ID:-}
+    env_file: .env.local
     depends_on:
-      - floci
+      terraform-setup:
+        condition: service_completed_successfully
     restart: unless-stopped
+
+  website:
+    build:
+      context: ./website
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    env_file: .env.local
+    depends_on:
+      terraform-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    volumes:
+      # Mount source for hot reload
+      - ./website:/app
+      # Exclude node_modules from host mount
+      - /app/node_modules
