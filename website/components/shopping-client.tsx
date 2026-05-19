@@ -65,6 +65,12 @@ export default function ShoppingClient({
     ]);
   };
 
+  const handleRemoveFromCart = (uuid: string) => {
+    setCart((prev) => prev.filter((item) => item.uuid !== uuid));
+  };
+
+  const isInCart = (uuid: string) => cart.some((item) => item.uuid === uuid);
+
   return (
     <div className="space-y-6">
       {/* Create Product Form */}
@@ -123,13 +129,23 @@ export default function ShoppingClient({
                       ${product.price.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAddToCart(product)}
-                      >
-                        Add to Cart
-                      </Button>
+                      {isInCart(product.uuid) ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleRemoveFromCart(product.uuid)}
+                        >
+                          Remove from Cart
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddToCart(product)}
+                        >
+                          Add to Cart
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -153,6 +169,7 @@ export default function ShoppingClient({
         items={cart}
         taxRate={taxRate}
         onTaxRateChange={setTaxRate}
+        onRemove={handleRemoveFromCart}
       />
 
       {message && (

@@ -146,3 +146,9 @@ variable "mcp_image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "api_gateway_cors_origins" {
+  description = "Allowed origins for API Gateway CORS. Restrict to the Amplify domain in production."
+  type        = list(string)
+  default     = ["*"]
+}

@@ -26,6 +26,7 @@ interface CartModalProps {
   items: CartProduct[];
   taxRate: number;
   onTaxRateChange: (rate: number) => void;
+  onRemove?: (productUuid: string) => void;
 }
 
 export default function CartModal({
@@ -34,6 +35,7 @@ export default function CartModal({
   items,
   taxRate,
   onTaxRateChange,
+  onRemove,
 }: CartModalProps) {
   const subtotal = items.reduce(
     (sum, item) => sum + (item.price ?? 0),
@@ -59,6 +61,7 @@ export default function CartModal({
               <TableRow>
                 <TableHead>Product</TableHead>
                 <TableHead className="text-right">Price</TableHead>
+                {onRemove && <TableHead className="text-right">Action</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -68,6 +71,17 @@ export default function CartModal({
                   <TableCell className="text-right">
                     ${(item.price ?? 0).toFixed(2)}
                   </TableCell>
+                  {onRemove && (
+                    <TableCell className="text-right">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => onRemove(item.uuid)}
+                      >
+                        Remove
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

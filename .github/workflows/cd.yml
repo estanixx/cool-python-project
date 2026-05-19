@@ -49,6 +49,8 @@ jobs:
             code_changed:
               - 'mcp-server/**'
               - 'api/**'
+              - 'website/**'
+              - 'infra/**'
               - '.github/workflows/*.yml'
 
   build-and-push:

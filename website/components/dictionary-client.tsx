@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api-client";
-import { DictionaryEntry } from "@/types/api";
+import { DictionaryEntry, DictionaryEntryRaw, normalizeEntry } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -17,12 +17,16 @@ import {
 
 interface DictionaryClientProps {
   initialEntries: DictionaryEntry[];
+  initialError?: boolean;
 }
 
 export default function DictionaryClient({
   initialEntries,
+  initialError = false,
 }: DictionaryClientProps) {
   const [entries, setEntries] = useState<DictionaryEntry[]>(initialEntries);
+  const [fetchError, setFetchError] = useState(initialError);
+  const [refetching, setRefetching] = useState(false);
   const [newWord, setNewWord] = useState("");
   const [newDefinition, setNewDefinition] = useState("");
   const [searchWord, setSearchWord] = useState("");
@@ -31,6 +35,23 @@ export default function DictionaryClient({
   );
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Re-fetch on mount if the server-side fetch failed
+  useEffect(() => {
+    if (fetchError) {
+      setRefetching(true);
+      api<{ entries: DictionaryEntryRaw[] }>("/dictionary?operation=list")
+        .then((data) => {
+          setEntries((data.entries ?? []).map(normalizeEntry));
+          setFetchError(false);
+          setMessage("");
+        })
+        .catch(() => {
+          setMessage("Failed to load entries. Please try again later.");
+        })
+        .finally(() => setRefetching(false));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,10 +67,10 @@ export default function DictionaryClient({
       setNewDefinition("");
       setMessage(`"${newWord}" added successfully.`);
       // Refresh list
-      const data = await api<{ entries: DictionaryEntry[] }>(
+      const data = await api<{ entries: DictionaryEntryRaw[] }>(
         "/dictionary?operation=list"
       );
-      setEntries(data.entries ?? []);
+      setEntries((data.entries ?? []).map(normalizeEntry));
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to add entry.");
     } finally {
@@ -64,8 +85,8 @@ export default function DictionaryClient({
     setSearchResult(null);
     setMessage("");
     try {
-      const result = await api<DictionaryEntry>(`/dictionary/${searchWord}`);
-      setSearchResult(result);
+      const raw = await api<DictionaryEntryRaw>(`/dictionary/${searchWord}`);
+      setSearchResult(normalizeEntry(raw));
     } catch (err) {
       setMessage(
         err instanceof Error ? err.message : `Entry "${searchWord}" not found.`
@@ -136,8 +157,14 @@ export default function DictionaryClient({
           <CardTitle>Entries</CardTitle>
         </CardHeader>
         <CardContent>
-          {entries.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No entries yet.</p>
+          {refetching ? (
+            <p className="text-muted-foreground text-sm">
+              Loading entries…
+            </p>
+          ) : entries.length === 0 ? (
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              No entries yet.
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -159,6 +186,11 @@ export default function DictionaryClient({
         </CardContent>
       </Card>
 
+      {fetchError && !refetching && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+          Could not load entries from the server. Check your connection and try again.
+        </div>
+      )}
       {message && (
         <p className="text-sm text-muted-foreground">{message}</p>
       )}
