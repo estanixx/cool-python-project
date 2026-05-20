@@ -643,6 +643,10 @@ resource "aws_ecs_task_definition" "mcp_server" {
       ]
       environment = [
         {
+          name  = "STAGE"
+          value = var.stage
+        },
+        {
           name  = "API_BASE_URL"
           value = "https://${aws_apigatewayv2_api.crud_api.id}.execute-api.${var.aws_region}.amazonaws.com"
         },

@@ -26,6 +26,7 @@ resource "aws_amplify_app" "website" {
             - cd website && npm ci
         build:
           commands:
+            - echo "PWD: $(pwd)" && ls -la && ls -la website/ 2>&1 || true
             - cd website && npm run build
       artifacts:
         baseDirectory: website/.next

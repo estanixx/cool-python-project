@@ -32,7 +32,7 @@ class TestCallApiStructuredLogging(unittest.TestCase):
     def test_emits_structured_log_on_success(self, mock_request, mock_logger):
         """Successful API call emits a structured JSON log line with all required fields."""
         mock_request.return_value = MockResponse(
-            200, json_body={"id": "1", "Word": "test"}
+            200, json_body={"statusCode": 200, "body": json.dumps({"id": "1", "Word": "test"})}
         )
 
         from mcp_server import _call_api
@@ -61,8 +61,9 @@ class TestCallApiStructuredLogging(unittest.TestCase):
     @patch("mcp_server.httpx.request")
     def test_emits_structured_log_on_error_status(self, mock_request, mock_logger):
         """Failed API call (4xx) emits a structured JSON log with error status."""
+        # Lambda API always returns 200 — the error is in the envelope body
         mock_request.return_value = MockResponse(
-            404, json_body={"error": "not found"}
+            200, json_body={"statusCode": 404, "body": json.dumps({"error": "not found"})}
         )
 
         from mcp_server import _call_api
@@ -87,7 +88,7 @@ class TestCallApiStructuredLogging(unittest.TestCase):
     def test_logging_failure_does_not_break_call(self, mock_request, mock_logger):
         """If logger.info raises, _call_api() still returns the correct result."""
         mock_request.return_value = MockResponse(
-            200, json_body={"id": "1", "Word": "hello"}
+            200, json_body={"statusCode": 200, "body": json.dumps({"id": "1", "Word": "hello"})}
         )
         mock_logger.info.side_effect = RuntimeError("logging broken")
 
@@ -104,7 +105,7 @@ class TestCallApiStructuredLogging(unittest.TestCase):
     def test_tool_name_derived_from_caller(self, mock_request, mock_logger):
         """The 'tool' field in the log matches the calling function name."""
         mock_request.return_value = MockResponse(
-            200, json_body={"id": "1"}
+            200, json_body={"statusCode": 200, "body": json.dumps({"id": "1"})}
         )
 
         from mcp_server import _call_api
