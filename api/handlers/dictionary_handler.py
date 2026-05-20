@@ -9,6 +9,8 @@ def handler(event, context):  # pylint: disable=unused-argument
     dao = DictionaryDAO(get_dynamodb_resource())
 
     try:
+        if operation == "options":
+            return _response(200, {})
         if operation == "create":
             item = dao.create(payload.get("Word") or payload.get("word"), payload.get("definition"))
             return _response(200, item)

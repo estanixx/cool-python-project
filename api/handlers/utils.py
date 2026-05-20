@@ -8,6 +8,7 @@ METHOD_TO_OPERATION = {
     "GET": "read",
     "PUT": "update",
     "DELETE": "delete",
+    "OPTIONS": "options",
 }
 
 

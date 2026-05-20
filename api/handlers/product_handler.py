@@ -11,6 +11,8 @@ def handler(event, context):  # pylint: disable=unused-argument
     dao = ProductDAO(get_dynamodb_resource())
 
     try:
+        if operation == "options":
+            return _response(200, {})
         if operation == "create":
             item = dao.create(
                 payload.get("name"),

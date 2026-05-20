@@ -7,6 +7,8 @@ def handler(event, context):  # pylint: disable=unused-argument
     operation, payload = parse_event(event or {})
 
     try:
+        if operation == "options":
+            return _response(200, {})
         if operation == "create":
             sentence = payload.get("sentence") or payload.get("text") or ""
             result = word_trick(sentence)
