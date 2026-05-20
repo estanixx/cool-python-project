@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { CartProduct, CartTotal } from "@/types/api";
+import { createCart, getCartTotal } from "@/lib/api-client";
+import { generateCartId, copyToClipboard, calculateLocalTotal } from "@/lib/cart-utils";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Check, Copy } from "lucide-react";
 
 interface CartModalProps {
   open: boolean;
@@ -37,12 +41,62 @@ export default function CartModal({
   onTaxRateChange,
   onRemove,
 }: CartModalProps) {
-  const subtotal = items.reduce(
-    (sum, item) => sum + (item.price ?? 0),
-    0
-  );
+  const [cartId, setCartId] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [apiTotal, setApiTotal] = useState<CartTotal | null>(null);
+  const [totalLoading, setTotalLoading] = useState(false);
+  const [totalError, setTotalError] = useState<string | null>(null);
+
+  const subtotal = items.reduce((sum, item) => sum + (item.price ?? 0), 0);
   const tax = subtotal * taxRate;
   const total = subtotal + tax;
+
+  const handleConfirm = async () => {
+    if (items.length === 0) return;
+    setConfirming(true);
+    setConfirmError(null);
+    setApiTotal(null);
+    setTotalError(null);
+
+    try {
+      const newCartId = generateCartId();
+      await createCart(newCartId, items);
+      setCartId(newCartId.toUpperCase());
+
+      // Fetch API total
+      setTotalLoading(true);
+      try {
+        const totals = await getCartTotal(newCartId, taxRate);
+        setApiTotal(totals);
+      } catch {
+        setTotalError("Could not load server totals. Using local calculation.");
+        setApiTotal(calculateLocalTotal(items, taxRate));
+      } finally {
+        setTotalLoading(false);
+      }
+    } catch (err) {
+      setConfirmError(
+        err instanceof Error ? err.message : "Failed to create cart.",
+      );
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const handleCopyId = async () => {
+    if (!cartId) return;
+    const success = await copyToClipboard(cartId);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const displayTotal = apiTotal ?? { subtotal, tax, total };
+  const displayTaxRate = apiTotal ? (apiTotal.tax / apiTotal.subtotal) : taxRate;
+  const hasConfirmedCart = cartId !== null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,19 +143,48 @@ export default function CartModal({
         )}
 
         <div className="space-y-2 py-2">
-          <div className="flex justify-between text-sm">
-            <span>Subtotal</span>
-            <span>${subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span>Tax ({(taxRate * 100).toFixed(0)}%)</span>
-            <span>${tax.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between font-semibold border-t pt-2">
-            <span>Total (includes taxes)</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
+          {totalLoading ? (
+            <p className="text-sm text-muted-foreground">Loading totals...</p>
+          ) : (
+            <>
+              <div className="flex justify-between text-sm">
+                <span>Subtotal</span>
+                <span>${displayTotal.subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Tax ({(displayTaxRate * 100).toFixed(0)}%)</span>
+                <span>${displayTotal.tax.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-semibold border-t pt-2">
+                <span>Total (includes taxes)</span>
+                <span>${displayTotal.total.toFixed(2)}</span>
+              </div>
+            </>
+          )}
+          {totalError && (
+            <p className="text-xs text-amber-600">{totalError}</p>
+          )}
         </div>
+
+        {hasConfirmedCart && (
+          <div className="flex items-center gap-2 py-1">
+            <span className="text-sm font-medium">Cart ID:</span>
+            <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
+              {cartId}
+            </code>
+            <Button variant="outline" size="sm" onClick={handleCopyId}>
+              {copied ? (
+                <Check className="h-4 w-4 text-green-600" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        )}
+
+        {confirmError && (
+          <p className="text-sm text-destructive">{confirmError}</p>
+        )}
 
         <div className="flex items-center gap-2">
           <label htmlFor="tax-rate" className="text-sm whitespace-nowrap">
@@ -120,6 +203,13 @@ export default function CartModal({
         </div>
 
         <DialogFooter>
+          <Button
+            variant="default"
+            onClick={handleConfirm}
+            disabled={confirming || items.length === 0}
+          >
+            {confirming ? "Confirming..." : "Confirm Cart"}
+          </Button>
           <DialogClose asChild>
             <Button variant="outline">Close</Button>
           </DialogClose>

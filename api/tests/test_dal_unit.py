@@ -79,6 +79,71 @@ class TestProductDAOListSearch(unittest.TestCase):
             dao.search("")
 
 
+class TestProductDAOPagination(unittest.TestCase):
+    def test_list_accumulates_across_pages(self):
+        """Scan returns LastEvaluatedKey; list() must loop until exhausted."""
+        dao = ProductDAO(_FakeDynamoResourceWithItems(
+            [
+                {"uuid": "p1", "name": "A", "price": Decimal("1")},
+                {"uuid": "p2", "name": "B", "price": Decimal("2")},
+                {"uuid": "p3", "name": "C", "price": Decimal("3")},
+            ],
+            page_size=2,
+        ))
+        results = dao.list()
+        self.assertEqual(len(results), 3)
+        uuids = {r["uuid"] for r in results}
+        self.assertIn("p1", uuids)
+        self.assertIn("p2", uuids)
+        self.assertIn("p3", uuids)
+
+    def test_list_handles_single_page(self):
+        """When scan fits in one page, no LastEvaluatedKey — list() returns directly."""
+        dao = ProductDAO(_FakeDynamoResourceWithItems(
+            [
+                {"uuid": "p1", "name": "A", "price": Decimal("1")},
+                {"uuid": "p2", "name": "B", "price": Decimal("2")},
+            ],
+            page_size=5,
+        ))
+        results = dao.list()
+        self.assertEqual(len(results), 2)
+
+    def test_list_returns_empty_when_no_items(self):
+        """Empty table returns empty list."""
+        dao = ProductDAO(_FakeDynamoResourceWithItems([], page_size=2))
+        results = dao.list()
+        self.assertEqual(results, [])
+
+    def test_list_caps_at_100_items(self):
+        """list() should not exceed the 100-item cap even if more pages exist."""
+        items = [
+            {"uuid": f"p{i}", "name": f"Item {i}", "price": Decimal(str(i))}
+            for i in range(150)
+        ]
+        dao = ProductDAO(_FakeDynamoResourceWithItems(items, page_size=30))
+        results = dao.list()
+        self.assertEqual(len(results), 100)
+
+    def test_list_four_pages_exactly(self):
+        """Crossing multiple page boundaries accumulates correctly."""
+        items = [
+            {"uuid": f"p{i}", "name": f"Item {i}", "price": Decimal(str(i))}
+            for i in range(8)
+        ]
+        dao = ProductDAO(_FakeDynamoResourceWithItems(items, page_size=3))
+        results = dao.list()
+        self.assertEqual(len(results), 8)
+
+    def test_list_without_pagination_still_works(self):
+        """When FakeTable has no page_size, behaves like before."""
+        dao = ProductDAO(_FakeDynamoResourceWithItems([
+            {"uuid": "p1", "name": "A", "price": Decimal("1")},
+        ]))
+        results = dao.list()
+        self.assertEqual(len(results), 1)
+
+
 class TestShoppingCartDAOProducts(unittest.TestCase):
     def test_create_with_products_list(self):
         dao = ShoppingCartDAO(_FakeDynamoResourceWithItems([]))
@@ -209,8 +274,9 @@ class TestShoppingCartDAOMutations(unittest.TestCase):
 
 
 class _FakeTable:
-    def __init__(self, items=None):
+    def __init__(self, items=None, page_size=None):
         self._items = items or []
+        self._page_size = page_size
 
     def put_item(self, Item=None, **_kwargs):
         if Item:
@@ -240,8 +306,28 @@ class _FakeTable:
     def delete_item(self, **_kwargs):
         return {"Attributes": {}}
 
-    def scan(self, **_kwargs):
-        return {"Items": self._items}
+    def scan(self, ExclusiveStartKey=None, **_kwargs):
+        if self._page_size is None:
+            return {"Items": self._items}
+
+        # Paginated mode: find starting index from ExclusiveStartKey
+        # In DynamoDB, ExclusiveStartKey means "start AFTER this key"
+        start_idx = 0
+        if ExclusiveStartKey is not None:
+            for i, item in enumerate(self._items):
+                if item.get("uuid") == ExclusiveStartKey.get("uuid"):
+                    start_idx = i + 1
+                    break
+
+        page = self._items[start_idx:start_idx + self._page_size]
+        result = {"Items": page}
+
+        # If there are more items, include LastEvaluatedKey of the LAST item in this page
+        if start_idx + self._page_size < len(self._items):
+            last_item = self._items[start_idx + self._page_size - 1]
+            result["LastEvaluatedKey"] = {"uuid": last_item["uuid"]}
+
+        return result
 
 
 class _FakeDynamoResource:
@@ -250,8 +336,9 @@ class _FakeDynamoResource:
 
 
 class _FakeDynamoResourceWithItems:
-    def __init__(self, items):
+    def __init__(self, items, page_size=None):
         self._items = items
+        self._page_size = page_size
 
     def Table(self, _name):
-        return _FakeTable(self._items)
+        return _FakeTable(self._items, page_size=self._page_size)

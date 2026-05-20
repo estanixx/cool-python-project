@@ -97,10 +97,22 @@ class ProductDAO:
         return os.getenv("DYNAMODB_TABLE_PRODUCT", "Product")
 
     def list(self) -> list:
-        """Return all products via DynamoDB Scan."""
+        """Return all products via DynamoDB Scan with pagination.
+
+        Loops on LastEvaluatedKey to handle multi-page results.
+        Capped at 100 items to bound memory usage.
+        """
         try:
-            response = self.table.scan()
-            return response.get("Items", [])
+            items = []
+            kwargs = {}
+            while len(items) < 100:
+                response = self.table.scan(**kwargs)
+                items.extend(response.get("Items", []))
+                last_key = response.get("LastEvaluatedKey")
+                if not last_key:
+                    break
+                kwargs["ExclusiveStartKey"] = last_key
+            return items[:100]
         except Exception as exc:  # pragma: no cover
             raise DynamoError("failed to list products") from exc
 

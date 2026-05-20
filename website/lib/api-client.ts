@@ -76,3 +76,35 @@ export async function api<T>(
 
   return parsed as T;
 }
+
+/** Create a shopping cart via the API. */
+export function createCart(
+  cartId: string,
+  products: Array<{ uuid: string; name?: string; price?: number }>,
+): Promise<{ UUID: string; products: Array<{ uuid: string; name?: string; price?: number }> }> {
+  return api("/shopping-cart", {
+    method: "POST",
+    body: JSON.stringify({ operation: "create", cart_id: cartId, products }),
+  });
+}
+
+/** Get cart total (subtotal, tax, total) from the API. */
+export function getCartTotal(
+  cartId: string,
+  taxRate: number = 0.07,
+): Promise<{ subtotal: number; tax: number; total: number }> {
+  return api("/shopping-cart", {
+    method: "POST",
+    body: JSON.stringify({ operation: "get_total", cart_id: cartId, tax_rate: taxRate }),
+  });
+}
+
+/** Get a shopping cart by ID via the API. */
+export function getCart(
+  cartId: string,
+): Promise<{ UUID: string; products: Array<{ uuid: string; name?: string; price?: number }> }> {
+  return api("/shopping-cart", {
+    method: "POST",
+    body: JSON.stringify({ operation: "read", cart_id: cartId }),
+  });
+}
