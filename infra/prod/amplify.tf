@@ -23,11 +23,10 @@ resource "aws_amplify_app" "website" {
       phases:
         preBuild:
           commands:
-            - cd website && npm ci
+            - npm --prefix website ci
         build:
           commands:
-            - echo "PWD: $(pwd)" && ls -la && ls -la website/ 2>&1 || true
-            - cd website && npm run build
+            - npm --prefix website run build
       artifacts:
         baseDirectory: website/.next
         files:
