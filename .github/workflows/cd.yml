@@ -170,8 +170,9 @@ jobs:
             exit 0
           fi
 
-          echo "Triggering Amplify build for app: $APP_ID (repo: $REPO)"
+          echo "Triggering Amplify build for app: $APP_ID (repo: $REPO, commit: ${{ github.sha }})"
           aws amplify start-job \
             --app-id "$APP_ID" \
             --branch-name main \
+            --commit-id "${{ github.sha }}" \
             --job-type RELEASE
