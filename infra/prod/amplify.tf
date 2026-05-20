@@ -25,7 +25,8 @@ resource "aws_amplify_app" "website" {
           phases:
             preBuild:
               commands:
-                - npm ci
+                # Install devDependencies so TypeScript/@types/node are available in Amplify.
+                - npm ci --include=dev
             build:
               commands:
                 - npm run build
@@ -39,11 +40,14 @@ resource "aws_amplify_app" "website" {
   EOT
 
   # Keep appRoot aligned with amplify.yml to ensure @/* alias resolution.
+  # appRoot override guardrail: keep Amplify console appRoot aligned.
 
   environment_variables = {
     AMPLIFY_MONOREPO_APP_ROOT = "website"
     NEXT_PUBLIC_API_URL       = module.crud.api_endpoint
     NODE_ENV                  = "production"
+    # Ensure TypeScript and @types/node are available during Amplify builds.
+    AMPLIFY_YARN_ENABLE_IMMUTABLE_INSTALLS = "false"
   }
 
   tags = {

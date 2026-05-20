@@ -2,11 +2,13 @@ version: 1
 applications:
   - appRoot: website
     # appRoot must remain website for @/* aliases to resolve via tsconfig.
+    # appRoot override guardrail: keep Amplify console appRoot aligned.
     frontend:
       phases:
         preBuild:
           commands:
-            - npm ci
+            # Install devDependencies so TypeScript/@types/node are available in Amplify.
+            - npm ci --include=dev
         build:
           commands:
             - npm run build
@@ -17,5 +19,4 @@ applications:
       cache:
         paths:
           - node_modules/**/*
-
 

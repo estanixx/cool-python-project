@@ -8,6 +8,7 @@ const nextConfig = {
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       // Fallback: ensure @/* resolves even if Amplify appRoot drifts.
+      // Alias resolution when root misaligned relies on this mapping.
       "@": path.resolve(__dirname),
     };
 
