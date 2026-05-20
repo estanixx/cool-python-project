@@ -28,35 +28,51 @@ export async function api<T>(
   });
 
   const rawText = await res.text();
-  let envelope: { statusCode: number; body: unknown };
+  let parsed: unknown;
   try {
-    envelope = JSON.parse(rawText);
+    parsed = JSON.parse(rawText);
   } catch {
     throw new Error(
       `Invalid JSON from API (status ${res.status}): ${rawText.slice(0, 500)}`,
     );
   }
 
-  // API Gateway v2: body is a JSON string that needs a second parse
-  let body: unknown;
-  if (typeof envelope.body === "string") {
-    try {
-      body = JSON.parse(envelope.body);
-    } catch (parseError) {
+  const isEnvelope =
+    typeof parsed === "object" &&
+    parsed !== null &&
+    "statusCode" in parsed &&
+    "body" in parsed;
+
+  if (isEnvelope) {
+    const envelope = parsed as { statusCode: number; body: unknown };
+    // API Gateway v2: body is a JSON string that needs a second parse
+    let body: unknown;
+    if (typeof envelope.body === "string") {
+      try {
+        body = JSON.parse(envelope.body);
+      } catch (parseError) {
+        throw new Error(
+          `Failed to parse API response body: ${envelope.body}`,
+        );
+      }
+    } else {
+      body = envelope.body;
+    }
+
+    if (!res.ok || envelope.statusCode >= 400) {
+      const errorBody = body as { error?: string };
       throw new Error(
-        `Failed to parse API response body: ${envelope.body}`,
+        errorBody?.error || `API error: ${envelope.statusCode}`,
       );
     }
-  } else {
-    body = envelope.body;
+
+    return body as T;
   }
 
-  if (!res.ok || envelope.statusCode >= 400) {
-    const errorBody = body as { error?: string };
-    throw new Error(
-      errorBody?.error || `API error: ${envelope.statusCode}`,
-    );
+  if (!res.ok) {
+    const errorBody = parsed as { error?: string };
+    throw new Error(errorBody?.error || `API error: ${res.status}`);
   }
 
-  return body as T;
+  return parsed as T;
 }
