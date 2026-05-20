@@ -55,6 +55,8 @@ jobs:
             website_changed:
               - 'website/**'
               - 'amplify.yml'
+              - 'infra/**'
+              - '.github/workflows/*.yml'
 
   build-and-push:
     name: Build & Push to ECR
