@@ -45,7 +45,7 @@ resource "aws_amplify_app" "website" {
   environment_variables = {
     AMPLIFY_MONOREPO_APP_ROOT = "website"
     # Strip trailing slash to avoid // in frontend requests.
-    NEXT_PUBLIC_API_URL       = regexreplace(module.crud.api_endpoint, "/$", "")
+    NEXT_PUBLIC_API_URL       = trimsuffix(module.crud.api_endpoint, "/")
     NODE_ENV                  = "production"
     # Ensure TypeScript and @types/node are available during Amplify builds.
     AMPLIFY_YARN_ENABLE_IMMUTABLE_INSTALLS = "false"
