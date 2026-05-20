@@ -72,6 +72,19 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init (ECR)
+        working-directory: infra/prod
+        run: terraform init
+
+      - name: Terraform Apply (ECR repository)
+        working-directory: infra/prod
+        env:
+          TF_VAR_github_token: ${{ secrets.GH_PAT }}
+        run: terraform apply -target=module.crud.aws_ecr_repository.mcp_server -var="mcp_image_tag=${{ github.sha }}" -auto-approve -input=false
+
       - name: Login to ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
