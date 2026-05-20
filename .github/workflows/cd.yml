@@ -136,6 +136,15 @@ jobs:
         working-directory: infra/prod
         run: terraform init
 
+      - name: Terraform Import (existing resources)
+        working-directory: infra/prod
+        env:
+          STAGE: prod
+          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
+        run: |
+          chmod +x ../../.github/scripts/terraform-import-if-exists.sh
+          ../../.github/scripts/terraform-import-if-exists.sh
+
       - name: Terraform Plan
         working-directory: infra/prod
         env:
