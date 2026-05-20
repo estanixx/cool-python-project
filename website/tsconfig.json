@@ -1,4 +1,5 @@
 {
+  "rootDir": "/website",
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
