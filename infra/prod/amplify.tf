@@ -19,27 +19,28 @@ resource "aws_amplify_app" "website" {
 
   build_spec = <<-EOT
     version: 1
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - npm ci
-        build:
-          commands:
-            - npm run build
-      artifacts:
-        baseDirectory: .next
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
+    applications:
+      - appRoot: website
+        frontend:
+          phases:
+            preBuild:
+              commands:
+                - npm ci
+            build:
+              commands:
+                - npm run build
+          artifacts:
+            baseDirectory: .next
+            files:
+              - '**/*'
+          cache:
+            paths:
+              - node_modules/**/*
   EOT
 
   environment_variables = {
-    AMPLIFY_MONOREPO_APP_ROOT = "website"
-    NEXT_PUBLIC_API_URL       = module.crud.api_endpoint
-    NODE_ENV                  = "production"
+    NEXT_PUBLIC_API_URL = module.crud.api_endpoint
+    NODE_ENV            = "production"
   }
 
   tags = {
