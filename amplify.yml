@@ -1,6 +1,7 @@
 version: 1
 applications:
   - appRoot: website
+    # appRoot must remain website for @/* aliases to resolve via tsconfig.
     frontend:
       phases:
         preBuild:
@@ -16,6 +17,5 @@ applications:
       cache:
         paths:
           - node_modules/**/*
-
 
 

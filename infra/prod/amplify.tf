@@ -38,6 +38,8 @@ resource "aws_amplify_app" "website" {
               - node_modules/**/*
   EOT
 
+  # Keep appRoot aligned with amplify.yml to ensure @/* alias resolution.
+
   environment_variables = {
     AMPLIFY_MONOREPO_APP_ROOT = "website"
     NEXT_PUBLIC_API_URL       = module.crud.api_endpoint
