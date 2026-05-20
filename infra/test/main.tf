@@ -18,7 +18,10 @@ locals {
     { content = file("${local.backend_root}/dal/shopping_cart_dao.py"), filename = "api/dal/shopping_cart_dao.py" },
     { content = file("${local.backend_root}/handlers/__init__.py"), filename = "api/handlers/__init__.py" },
     { content = file("${local.backend_root}/handlers/utils.py"), filename = "api/handlers/utils.py" },
+    # api/utils/ — needed by word_trick handler (from api.utils import word_trick)
     { content = file("${local.backend_root}/utils/__init__.py"), filename = "api/utils/__init__.py" },
+    { content = file("${local.backend_root}/utils/word_trick.py"), filename = "api/utils/word_trick.py" },
+    { content = file("${local.backend_root}/utils/dictionary.py"), filename = "api/utils/dictionary.py" },
     { content = file("${local.backend_root}/utils/shopping.py"), filename = "api/utils/shopping.py" },
   ]
 }

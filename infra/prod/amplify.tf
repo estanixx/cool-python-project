@@ -39,8 +39,9 @@ resource "aws_amplify_app" "website" {
   EOT
 
   environment_variables = {
-    NEXT_PUBLIC_API_URL = module.crud.api_endpoint
-    NODE_ENV            = "production"
+    AMPLIFY_MONOREPO_APP_ROOT = "website"
+    NEXT_PUBLIC_API_URL       = module.crud.api_endpoint
+    NODE_ENV                  = "production"
   }
 
   tags = {
