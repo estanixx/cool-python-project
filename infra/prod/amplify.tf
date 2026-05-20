@@ -23,22 +23,23 @@ resource "aws_amplify_app" "website" {
       phases:
         preBuild:
           commands:
-            - npm --prefix website ci
+            - npm ci
         build:
           commands:
-            - npm --prefix website run build
+            - npm run build
       artifacts:
-        baseDirectory: website/.next
+        baseDirectory: .next
         files:
           - '**/*'
       cache:
         paths:
-          - website/node_modules/**/*
+          - node_modules/**/*
   EOT
 
   environment_variables = {
-    NEXT_PUBLIC_API_URL = module.crud.api_endpoint
-    NODE_ENV            = "production"
+    AMPLIFY_MONOREPO_APP_ROOT = "website"
+    NEXT_PUBLIC_API_URL       = module.crud.api_endpoint
+    NODE_ENV                  = "production"
   }
 
   tags = {

@@ -3,14 +3,15 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm --prefix website ci
+        - npm ci
     build:
       commands:
-        - npm --prefix website run build
+        - npm run build
   artifacts:
-    baseDirectory: website/.next
+    # Since Amplify is already in the 'website' folder, just look for .next
+    baseDirectory: .next
     files:
-      - "**/*"
+      - '**/*'
   cache:
     paths:
-      - website/node_modules/**/*
+      - node_modules/**/*

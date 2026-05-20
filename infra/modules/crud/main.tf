@@ -1000,29 +1000,53 @@ locals {
           view    = "timeSeries"
         }
       },
-      # Row 6: Lambda
-      { type = "metric", x = 0, y = 30, width = 8, height = 6,
+      # Row 6: Lambda — all 4 functions
+      { type = "metric", x = 0, y = 30, width = 6, height = 6,
         properties = {
-          title   = "Lambda — Invocations",
-          metrics = [["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_names.dictionary, { stat = "Sum" }]],
-          region  = var.aws_region
-          view    = "timeSeries"
+          title = "Dictionary",
+          metrics = [
+            ["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_names.dictionary, { stat = "Sum" }],
+            [".", "Duration", ".", ".", { stat = "Average" }],
+            [".", "Errors", ".", ".", { stat = "Sum" }]
+          ],
+          region = var.aws_region
+          view   = "timeSeries"
         }
       },
-      { type = "metric", x = 8, y = 30, width = 8, height = 6,
+      { type = "metric", x = 6, y = 30, width = 6, height = 6,
         properties = {
-          title   = "Lambda — Duration",
-          metrics = [["AWS/Lambda", "Duration", "FunctionName", var.lambda_function_names.dictionary, { stat = "Average" }]],
-          region  = var.aws_region
-          view    = "timeSeries"
+          title = "Product",
+          metrics = [
+            ["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_names.product, { stat = "Sum" }],
+            [".", "Duration", ".", ".", { stat = "Average" }],
+            [".", "Errors", ".", ".", { stat = "Sum" }]
+          ],
+          region = var.aws_region
+          view   = "timeSeries"
         }
       },
-      { type = "metric", x = 16, y = 30, width = 8, height = 6,
+      { type = "metric", x = 12, y = 30, width = 6, height = 6,
         properties = {
-          title   = "Lambda — Errors",
-          metrics = [["AWS/Lambda", "Errors", "FunctionName", var.lambda_function_names.dictionary, { stat = "Sum" }]],
-          region  = var.aws_region
-          view    = "timeSeries"
+          title = "Shopping Cart",
+          metrics = [
+            ["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_names.shopping_cart, { stat = "Sum" }],
+            [".", "Duration", ".", ".", { stat = "Average" }],
+            [".", "Errors", ".", ".", { stat = "Sum" }]
+          ],
+          region = var.aws_region
+          view   = "timeSeries"
+        }
+      },
+      { type = "metric", x = 18, y = 30, width = 6, height = 6,
+        properties = {
+          title = "Word Trick",
+          metrics = [
+            ["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_names.word_trick, { stat = "Sum" }],
+            [".", "Duration", ".", ".", { stat = "Average" }],
+            [".", "Errors", ".", ".", { stat = "Sum" }]
+          ],
+          region = var.aws_region
+          view   = "timeSeries"
         }
       },
     ]
