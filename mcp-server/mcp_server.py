@@ -62,14 +62,14 @@ def _get_caller_name() -> str:
 def _log_tool_call(tool: str, method: str, path: str, status: int, duration_ms: int) -> None:
     """Best-effort structured JSON log. Never breaks the call."""
     try:
-        logger.info(json.dumps({
+        print(json.dumps({
             "level": "info",
             "tool": tool,
             "method": method,
             "path": path,
             "status": status,
             "duration_ms": duration_ms,
-        }))
+        }), flush=True)
     except Exception:
         pass
 
@@ -498,13 +498,13 @@ def stress_test(
         "results": results,
     }
 
-    logger.info(json.dumps({
+    print(json.dumps({
         "level": "info",
         "tool": "stress_test",
         "total_calls": total_calls,
         "success": success_count,
         "errors": error_count,
-    }))
+    }), flush=True)
 
     return CallToolResult(
         content=[TextContent(type="text", text=json.dumps(summary))],
