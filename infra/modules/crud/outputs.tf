@@ -96,3 +96,19 @@ output "dashboard_arn" {
   description = "CloudWatch dashboard ARN (prod only)."
   value       = var.stage == "prod" ? aws_cloudwatch_dashboard.main[0].dashboard_arn : null
 }
+
+output "sns_topic_arn" {
+  description = "SNS topic ARN for alarm notifications (prod only)."
+  value       = var.stage == "prod" ? aws_sns_topic.alarm_notifications[0].arn : null
+}
+
+output "alarm_arns" {
+  description = "CloudWatch alarm ARNs (prod only)."
+  value = var.stage == "prod" ? {
+    mcp_tool_errors   = aws_cloudwatch_metric_alarm.mcp_tool_errors[0].arn
+    apigw_5xx         = aws_cloudwatch_metric_alarm.apigw_5xx[0].arn
+    ecs_cpu           = aws_cloudwatch_metric_alarm.ecs_cpu[0].arn
+    ecs_memory        = aws_cloudwatch_metric_alarm.ecs_memory[0].arn
+    alb_healthy_hosts = aws_cloudwatch_metric_alarm.alb_healthy_hosts[0].arn
+  } : null
+}

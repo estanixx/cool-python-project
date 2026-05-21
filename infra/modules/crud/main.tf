@@ -774,7 +774,7 @@ resource "aws_ecs_service" "mcp_server" {
   name            = "mcp-server-service-${var.stage}"
   cluster         = aws_ecs_cluster.mcp[0].id
   task_definition = aws_ecs_task_definition.mcp_server[0].arn
-  desired_count   = var.enable_alb ? 1 : 1
+  desired_count   = var.ecs_desired_count
   launch_type     = "FARGATE"
 
   dynamic "load_balancer" {
@@ -807,8 +807,8 @@ data "aws_subnets" "default" {
 
 resource "aws_appautoscaling_target" "mcp" {
   count              = var.enable_alb && var.stage == "prod" ? 1 : 0
-  max_capacity       = 4
-  min_capacity       = 1
+  max_capacity       = var.ecs_max_capacity
+  min_capacity       = var.ecs_min_capacity
   resource_id        = "service/${aws_ecs_cluster.mcp[0].name}/${aws_ecs_service.mcp_server[0].name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
@@ -878,6 +878,120 @@ resource "aws_cloudwatch_log_metric_filter" "mcp_tool_errors" {
       ToolName = "$.tool"
     }
   }
+}
+
+# --- Observability: SNS Topic + Alarms (prod only) ---
+
+resource "aws_sns_topic" "alarm_notifications" {
+  count = var.stage == "prod" ? 1 : 0
+  name  = "mcp-server-alerts-${var.stage}"
+
+  tags = local.tags
+}
+
+resource "aws_sns_topic_subscription" "email" {
+  count     = var.stage == "prod" ? 1 : 0
+  topic_arn = aws_sns_topic.alarm_notifications[0].arn
+  protocol  = "email"
+  endpoint  = var.alarm_email
+}
+
+resource "aws_cloudwatch_metric_alarm" "mcp_tool_errors" {
+  count               = var.stage == "prod" ? 1 : 0
+  alarm_name          = "MCP-ToolErrors-${var.stage}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ToolErrors"
+  namespace           = "MCP/Server"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alert when MCP tool error count exceeds 0"
+  alarm_actions       = [aws_sns_topic.alarm_notifications[0].arn]
+
+  tags = local.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "apigw_5xx" {
+  count               = var.stage == "prod" ? 1 : 0
+  alarm_name          = "APIGW-5xx-${var.stage}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "5xx"
+  namespace           = "AWS/ApiGateway"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alert when API Gateway 5xx error count exceeds 0"
+  alarm_actions       = [aws_sns_topic.alarm_notifications[0].arn]
+
+  dimensions = {
+    ApiId = aws_apigatewayv2_api.crud_api.id
+  }
+
+  tags = local.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "ecs_cpu" {
+  count               = var.stage == "prod" ? 1 : 0
+  alarm_name          = "ECS-CPU-${var.stage}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 70
+  alarm_description   = "Alert when ECS CPU utilization exceeds 70%"
+  alarm_actions       = [aws_sns_topic.alarm_notifications[0].arn]
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.mcp[0].name
+    ServiceName = aws_ecs_service.mcp_server[0].name
+  }
+
+  tags = local.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "ecs_memory" {
+  count               = var.stage == "prod" ? 1 : 0
+  alarm_name          = "ECS-Memory-${var.stage}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 70
+  alarm_description   = "Alert when ECS memory utilization exceeds 70%"
+  alarm_actions       = [aws_sns_topic.alarm_notifications[0].arn]
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.mcp[0].name
+    ServiceName = aws_ecs_service.mcp_server[0].name
+  }
+
+  tags = local.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "alb_healthy_hosts" {
+  count               = var.enable_alb && var.stage == "prod" ? 1 : 0
+  alarm_name          = "ALB-HealthyHosts-${var.stage}"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "HealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 1
+  alarm_description   = "Alert when ALB healthy host count drops below 1"
+  alarm_actions       = [aws_sns_topic.alarm_notifications[0].arn]
+
+  dimensions = {
+    LoadBalancer = aws_lb.mcp[0].name
+  }
+
+  tags = local.tags
 }
 
 # --- Observability: CloudWatch Dashboard (prod only) ---
@@ -985,8 +1099,8 @@ locals {
         properties = {
           title = "DynamoDB — Read/Write Capacity",
           metrics = [
-            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", var.table_names.dictionary, { stat = "Sum" }],
-            [".", "ConsumedWriteCapacityUnits", ".", ".", { stat = "Sum" }]
+            ["AWS/DynamoDB", "ReadRequestUnits", "TableName", var.table_names.dictionary, { stat = "Sum" }],
+            [".", "WriteRequestUnits", ".", ".", { stat = "Sum" }]
           ],
           region = var.aws_region
           view   = "timeSeries"
