@@ -159,11 +159,9 @@ jobs:
         run: terraform init
 
       - name: Terraform Import (existing resources)
-        if: github.ref == 'refs/heads/main'
         working-directory: ${{ steps.tf-dir.outputs.dir }}
         env:
           STAGE: ${{ steps.tf-dir.outputs.stage }}
-          ECR_REPOSITORY: mcp-server-prod
         run: |
           chmod +x ../../.github/scripts/terraform-import-if-exists.sh
           ../../.github/scripts/terraform-import-if-exists.sh
