@@ -163,6 +163,10 @@ module "crud" {
 
   # Test creates its own standalone word_trick Lambda outside the module
   enable_word_trick = false
+
+  # Floci/LocalStack doesn't support ECS, CloudWatch, SNS, or Dashboards
+  enable_ecs           = false
+  enable_observability = false
 }
 
 # Word Trick Lambda (standalone, no DynamoDB needed)
