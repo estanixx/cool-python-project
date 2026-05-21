@@ -1,0 +1,243 @@
+name: CD
+
+on:
+  push:
+    branches: [staging, main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_ROLE_ARN: ${{ vars.ROLE_ARN }}
+  AWS_REGION: us-east-1
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r api/requirements.txt
+          pip install -r mcp-server/requirements.txt
+
+      - name: Run unit tests
+        run: python -m unittest discover -s api/tests -p "test_*.py" -v
+
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      code_changed: ${{ steps.filter.outputs.code_changed }}
+      website_changed: ${{ steps.filter.outputs.website_changed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code_changed:
+              - 'mcp-server/**'
+              - 'api/**'
+              - 'infra/**'
+              - '.github/workflows/*.yml'
+            website_changed:
+              - 'website/**'
+              - 'amplify.yml'
+              - 'infra/**'
+              - '.github/workflows/*.yml'
+
+  build-and-push:
+    name: Build & Push to ECR
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.code_changed == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set ECR repository name
+        id: ecr
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "repo=mcp-server-prod" >> "$GITHUB_OUTPUT"
+            echo "dir=infra/prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "repo=mcp-server-staging" >> "$GITHUB_OUTPUT"
+            echo "dir=infra/staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init (ECR)
+        working-directory: ${{ steps.ecr.outputs.dir }}
+        run: terraform init
+
+      - name: Terraform Apply (ECR repository)
+        working-directory: ${{ steps.ecr.outputs.dir }}
+        env:
+          TF_VAR_github_token: ${{ secrets.GH_PAT }}
+        run: terraform apply -target=module.crud.aws_ecr_repository.mcp_server -var="mcp_image_tag=${{ github.sha }}" -auto-approve -input=false
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ steps.ecr.outputs.repo }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG mcp-server/
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  deploy:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [test, detect-changes, build-and-push]
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.detect-changes.result == 'success' && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify OIDC Auth
+        run: aws sts get-caller-identity
+
+      - name: Resolve image tag
+        id: image-tag
+        run: |
+          if [[ "${{ needs.build-and-push.result }}" == "success" ]]; then
+            echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            CURRENT_IMAGE=$(aws ecs describe-task-definition \
+              --task-definition "$(aws ecs describe-services \
+                --cluster mcp-cluster-prod \
+                --services mcp-server-service-prod \
+                --query 'services[0].taskDefinition' --output text 2>/dev/null)" \
+              --query 'taskDefinition.containerDefinitions[0].image' --output text 2>/dev/null) || CURRENT_IMAGE=""
+            echo "tag=${CURRENT_IMAGE##*:}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set Terraform directory
+        id: tf-dir
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "dir=infra/prod" >> "$GITHUB_OUTPUT"
+            echo "stage=prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=infra/staging" >> "$GITHUB_OUTPUT"
+            echo "stage=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Terraform Init
+        working-directory: ${{ steps.tf-dir.outputs.dir }}
+        run: terraform init
+
+      - name: Terraform Import (existing resources)
+        working-directory: ${{ steps.tf-dir.outputs.dir }}
+        env:
+          STAGE: ${{ steps.tf-dir.outputs.stage }}
+        run: |
+          chmod +x ../../.github/scripts/terraform-import-if-exists.sh
+          ../../.github/scripts/terraform-import-if-exists.sh
+
+      - name: Terraform Plan
+        working-directory: ${{ steps.tf-dir.outputs.dir }}
+        env:
+          TF_VAR_github_token: ${{ secrets.GH_PAT }}
+        run: terraform plan -var="mcp_image_tag=${{ steps.image-tag.outputs.tag }}" -no-color -input=false
+
+      - name: Terraform Apply
+        working-directory: ${{ steps.tf-dir.outputs.dir }}
+        env:
+          TF_VAR_github_token: ${{ secrets.GH_PAT }}
+        run: terraform apply -var="mcp_image_tag=${{ steps.image-tag.outputs.tag }}" -auto-approve -input=false
+
+      - name: Print Deployment Outputs
+        working-directory: ${{ steps.tf-dir.outputs.dir }}
+        run: |
+          echo "=== Deployment Outputs ==="
+          echo "Stage:       ${{ steps.tf-dir.outputs.stage }}"
+          echo "API Gateway: $(terraform output -raw api_endpoint)"
+          echo "MCP ALB:     $(terraform output -raw mcp_alb_dns_name || echo 'not enabled')"
+          echo "MCP Service: $(terraform output -raw mcp_service_endpoint || echo 'not enabled')"
+          echo "Amplify:     $(terraform output -raw amplify_default_domain || echo 'not enabled')"
+
+  deploy-amplify:
+    name: Deploy Website via Amplify
+    runs-on: ubuntu-latest
+    needs: [test, detect-changes, deploy]
+    if: ${{ always() && needs.detect-changes.outputs.website_changed == 'true' && needs.deploy.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set Amplify parameters
+        id: amplify-params
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "app_name=cool-python-project-website" >> "$GITHUB_OUTPUT"
+            echo "branch_name=main" >> "$GITHUB_OUTPUT"
+          else
+            echo "app_name=cool-python-project-website-staging" >> "$GITHUB_OUTPUT"
+            echo "branch_name=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Signal Amplify to Build
+        run: |
+          APP_ID=$(aws amplify list-apps \
+            --query "apps[?name=='${{ steps.amplify-params.outputs.app_name }}'].appId" \
+            --output text)
+
+          if [ -z "$APP_ID" ]; then
+            echo "ERROR: No Amplify app found ('${{ steps.amplify-params.outputs.app_name }}'). Run terraform apply first."
+            exit 1
+          fi
+
+          # Check if the app has a repository connected before triggering build
+          REPO=$(aws amplify get-app --app-id "$APP_ID" \
+            --query 'app.repository' --output text 2>/dev/null || echo "none")
+
+          if [ "$REPO" = "none" ] || [ "$REPO" = "None" ] || [ "$REPO" = "null" ] || [ -z "$REPO" ]; then
+            echo "WARNING: Amplify app is not connected to a repository provider."
+            echo "Set GH_PAT secret in GitHub and run terraform apply to link the repo."
+            echo "For now, you can deploy manually via the Amplify Console."
+            exit 0
+          fi
+
+          echo "Triggering Amplify build for app: $APP_ID (repo: $REPO, commit: ${{ github.sha }}, branch: ${{ steps.amplify-params.outputs.branch_name }})"
+          aws amplify start-job \
+            --app-id "$APP_ID" \
+            --branch-name "${{ steps.amplify-params.outputs.branch_name }}" \
+            --commit-id "${{ github.sha }}" \
+            --job-type RELEASE

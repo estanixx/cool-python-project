@@ -1,0 +1,786 @@
+openapi: "3.0.3"
+info:
+  title: API Gateway v2 — Serverless CRUD API
+  version: "1.0.0"
+  contact:
+    name: API Team
+  description: |
+    OpenAPI specification for the API Gateway v2 HTTP API backing the Serverless CRUD application.
+
+    **CORS Configuration:**
+    - `Access-Control-Allow-Origin: *`
+    - Methods: `GET, POST, PUT, DELETE, OPTIONS`
+    - Configured at the API Gateway level (infra/main.tf).
+
+    **Architecture:**
+    Each route is backed by an AWS Lambda handler that dispatches operations based on
+    HTTP method and an `operation` field in the query string or request body.
+    Multi-operation routes (e.g., POST `/shopping-cart`) use the `operation` body field
+    as a discriminator to select the sub-operation.
+
+    **Deployment Note:**
+    The `/word-trick` route is deployed only in the `prod` stage.
+
+servers:
+  - url: https://{api-id}.execute-api.{region}.amazonaws.com
+    description: API Gateway v2 production endpoint
+    variables:
+      api-id:
+        default: ""
+        description: API Gateway ID
+      region:
+        default: us-east-1
+        description: AWS region
+  - url: http://localhost:4566/restapis/{api-id}/_user_request_
+    description: LocalStack / Floci development endpoint
+    variables:
+      api-id:
+        default: ""
+        description: API Gateway ID
+
+tags:
+  - name: Dictionary
+    description: Dictionary entry CRUD operations
+  - name: Product
+    description: Product catalog operations
+  - name: Shopping Cart
+    description: Shopping cart management operations
+  - name: Word Trick
+    description: Word trick text processing (prod-only)
+
+paths:
+  /dictionary:
+    post:
+      summary: Create a dictionary entry
+      description: Creates a new dictionary entry with a word and its definition.
+      operationId: dictionaryCreate
+      tags:
+        - Dictionary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - Word
+                - definition
+              properties:
+                Word:
+                  type: string
+                  description: The word to define
+                definition:
+                  type: string
+                  description: The definition of the word
+            example:
+              Word: "ephemeral"
+              definition: "Lasting for a very short time"
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    get:
+      summary: List all dictionary entries
+      description: |
+        Returns all dictionary entries. Dispatched via query parameter `operation=list`.
+      operationId: dictionaryList
+      tags:
+        - Dictionary
+      parameters:
+        - name: operation
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - list
+          description: Operation discriminator — must be "list"
+      responses:
+        "200":
+          description: Successful response with entries array
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+              example:
+                statusCode: 200
+                body: '{"entries": [{"Word": "ephemeral", "definition": "Lasting for a very short time"}]}'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /dictionary/{word}:
+    get:
+      summary: Read a dictionary entry by word
+      description: Retrieves a single dictionary entry by its word.
+      operationId: dictionaryRead
+      tags:
+        - Dictionary
+      parameters:
+        - $ref: "#/components/parameters/word"
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    put:
+      summary: Update a dictionary entry
+      description: Updates the definition of an existing dictionary entry.
+      operationId: dictionaryUpdate
+      tags:
+        - Dictionary
+      parameters:
+        - $ref: "#/components/parameters/word"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - definition
+              properties:
+                definition:
+                  type: string
+                  description: The new definition for the word
+            example:
+              definition: "Lasting for a very short time"
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    delete:
+      summary: Delete a dictionary entry by word
+      description: Removes a dictionary entry by its word.
+      operationId: dictionaryDelete
+      tags:
+        - Dictionary
+      parameters:
+        - $ref: "#/components/parameters/word"
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /product:
+    post:
+      summary: Create a product
+      description: Creates a new product in the catalog.
+      operationId: productCreate
+      tags:
+        - Product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - price
+              properties:
+                name:
+                  type: string
+                  description: Product name
+                price:
+                  type: number
+                  format: double
+                  description: Product price
+                uuid:
+                  type: string
+                  description: Optional product UUID (server-generated if omitted)
+            example:
+              name: "Widget"
+              price: 9.99
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    get:
+      summary: List or search products
+      description: |
+        List all products or search by name. Dispatched via query parameter `operation`.
+
+        | `operation` value | Behavior | Required params |
+        |-------------------|----------|-----------------|
+        | `list` | Return all products | `operation` only |
+        | `search` | Search by name (case-insensitive substring) | `operation` + `term` |
+      operationId: productListOrSearch
+      tags:
+        - Product
+      parameters:
+        - name: operation
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - list
+              - search
+          description: Operation discriminator — "list" or "search"
+        - name: term
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search term (required when `operation=search`)
+      responses:
+        "200":
+          description: Successful response with products array
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+              examples:
+                list:
+                  summary: List operation response
+                  value:
+                    statusCode: 200
+                    body: '{"products": [{"uuid": "abc-123", "name": "Widget", "price": 9.99}]}'
+                search:
+                  summary: Search operation response
+                  value:
+                    statusCode: 200
+                    body: '{"products": [{"uuid": "abc-123", "name": "Widget", "price": 9.99}]}'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /product/{product_id}:
+    get:
+      summary: Read a product by id
+      description: Retrieves a single product by its UUID.
+      operationId: productRead
+      tags:
+        - Product
+      parameters:
+        - $ref: "#/components/parameters/product_id"
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    put:
+      summary: Update product fields by id
+      description: Updates one or more fields of an existing product.
+      operationId: productUpdate
+      tags:
+        - Product
+      parameters:
+        - $ref: "#/components/parameters/product_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: New product name (optional)
+                price:
+                  type: number
+                  format: double
+                  description: New product price (optional)
+            example:
+              name: "Super Widget"
+              price: 14.99
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    delete:
+      summary: Delete a product by id
+      description: Removes a product from the catalog by its UUID.
+      operationId: productDelete
+      tags:
+        - Product
+      parameters:
+        - $ref: "#/components/parameters/product_id"
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /shopping-cart:
+    post:
+      summary: Shopping cart operations (create, add_product, remove_product, get_total)
+      description: |
+        Multi-operation endpoint. The `operation` field in the request body determines
+        which sub-operation to execute.
+
+        | Operation | Description |
+        |-----------|-------------|
+        | (none) | Create a new shopping cart |
+        | `add_product` | Add a product to an existing cart |
+        | `remove_product` | Remove a product from an existing cart |
+        | `get_total` | Calculate cart subtotal, tax, and total |
+      operationId: shoppingCartOperations
+      tags:
+        - Shopping Cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/CreateCartRequest"
+                - $ref: "#/components/schemas/AddProductRequest"
+                - $ref: "#/components/schemas/RemoveProductRequest"
+                - $ref: "#/components/schemas/GetTotalRequest"
+              discriminator:
+                propertyName: operation
+                mapping:
+                  add_product: "#/components/schemas/AddProductRequest"
+                  remove_product: "#/components/schemas/RemoveProductRequest"
+                  get_total: "#/components/schemas/GetTotalRequest"
+            examples:
+              create:
+                summary: Create cart
+                value:
+                  UUID: "cart-001"
+                  products:
+                    - uuid: "abc-123"
+                      name: "Widget"
+                      price: 9.99
+              add_product:
+                summary: Add product to cart
+                value:
+                  operation: "add_product"
+                  cart_id: "cart-001"
+                  product:
+                    uuid: "def-456"
+                    name: "Gadget"
+                    price: 19.99
+              remove_product:
+                summary: Remove product from cart
+                value:
+                  operation: "remove_product"
+                  cart_id: "cart-001"
+                  product_uuid: "def-456"
+              get_total:
+                summary: Get cart total
+                value:
+                  operation: "get_total"
+                  cart_id: "cart-001"
+                  tax_rate: 0.07
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /shopping-cart/{cart_id}:
+    get:
+      summary: Read a shopping cart by id
+      operationId: shoppingCartRead
+      tags:
+        - Shopping Cart
+      parameters:
+        - $ref: "#/components/parameters/cart_id"
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    put:
+      summary: Update a shopping cart's products
+      operationId: shoppingCartUpdate
+      tags:
+        - Shopping Cart
+      parameters:
+        - $ref: "#/components/parameters/cart_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - products
+              properties:
+                products:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CartProduct"
+            example:
+              products:
+                - uuid: "abc-123"
+                  name: "Widget"
+                  price: 9.99
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    delete:
+      summary: Delete a shopping cart by id
+      operationId: shoppingCartDelete
+      tags:
+        - Shopping Cart
+      parameters:
+        - $ref: "#/components/parameters/cart_id"
+      responses:
+        "200":
+          $ref: "#/components/responses/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /word-trick:
+    post:
+      summary: Apply the word trick (prod-only deployment)
+      description: |
+        Returns the i-th character of the i-th word for each word in the sentence.
+
+        **Note:** This route is deployed only in the `prod` stage.
+      operationId: wordTrick
+      tags:
+        - Word Trick
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sentence
+              properties:
+                sentence:
+                  type: string
+                  description: Input sentence to process
+            example:
+              sentence: "Hello world test"
+      responses:
+        "200":
+          description: Successful response with word trick result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+              example:
+                statusCode: 200
+                body: '{"input": "Hello world test", "result": ["H", "o", "s"]}'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+components:
+  parameters:
+    word:
+      name: word
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The dictionary word
+
+    product_id:
+      name: product_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The product UUID
+
+    cart_id:
+      name: cart_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The shopping cart UUID
+
+  schemas:
+    ApiResponse:
+      type: object
+      description: |
+        Standard success response envelope. The `body` field is a JSON-encoded string
+        that must be parsed to access the operation-specific payload.
+      properties:
+        statusCode:
+          type: integer
+          example: 200
+        body:
+          type: string
+          description: JSON-encoded response body
+          example: '{"entries": []}'
+
+    ApiError:
+      type: object
+      description: Standard error response envelope.
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        body:
+          type: object
+          properties:
+            error:
+              type: string
+              description: Error message
+              example: "Bad request"
+
+    DictionaryEntry:
+      type: object
+      required:
+        - Word
+        - definition
+      properties:
+        Word:
+          type: string
+          description: The dictionary word
+        definition:
+          type: string
+          description: The word definition
+
+    Product:
+      type: object
+      required:
+        - name
+        - price
+      properties:
+        uuid:
+          type: string
+          description: Product UUID (server-generated if not provided)
+        name:
+          type: string
+          description: Product name
+        price:
+          type: number
+          format: double
+          description: Product price
+
+    ProductSnapshot:
+      type: object
+      required:
+        - uuid
+      properties:
+        uuid:
+          type: string
+          description: Product UUID
+        name:
+          type: string
+          description: Product name (snapshot at time of cart addition)
+        price:
+          type: number
+          format: double
+          description: Product price (snapshot at time of cart addition)
+
+    CartProduct:
+      type: object
+      required:
+        - uuid
+        - name
+        - price
+      properties:
+        uuid:
+          type: string
+          description: Product UUID
+        name:
+          type: string
+          description: Product name
+        price:
+          type: number
+          format: double
+          description: Product price
+
+    ShoppingCart:
+      type: object
+      required:
+        - UUID
+        - products
+      properties:
+        UUID:
+          type: string
+          description: Shopping cart UUID
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartProduct"
+          description: Products in the cart
+
+    WordTrickResult:
+      type: object
+      properties:
+        input:
+          type: string
+          description: The input sentence
+        result:
+          type: array
+          items:
+            type: string
+          description: Array of i-th characters from each word
+
+    CreateCartRequest:
+      type: object
+      description: Request body for creating a new shopping cart (no `operation` field).
+      required:
+        - UUID
+        - products
+      properties:
+        UUID:
+          type: string
+          description: Shopping cart UUID
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartProduct"
+          description: Initial products in the cart
+
+    AddProductRequest:
+      type: object
+      description: Request body for adding a product to a shopping cart.
+      required:
+        - operation
+        - cart_id
+        - product
+      properties:
+        operation:
+          type: string
+          enum:
+            - add_product
+        cart_id:
+          type: string
+          description: Target shopping cart UUID
+        product:
+          type: object
+          required:
+            - uuid
+          properties:
+            uuid:
+              type: string
+              description: Product UUID to add
+            name:
+              type: string
+              description: Product name (optional snapshot)
+            price:
+              type: number
+              format: double
+              description: Product price (optional snapshot)
+
+    RemoveProductRequest:
+      type: object
+      description: Request body for removing a product from a shopping cart.
+      required:
+        - operation
+        - cart_id
+        - product_uuid
+      properties:
+        operation:
+          type: string
+          enum:
+            - remove_product
+        cart_id:
+          type: string
+          description: Target shopping cart UUID
+        product_uuid:
+          type: string
+          description: Product UUID to remove
+
+    GetTotalRequest:
+      type: object
+      description: Request body for calculating shopping cart total.
+      required:
+        - operation
+        - cart_id
+      properties:
+        operation:
+          type: string
+          enum:
+            - get_total
+        cart_id:
+          type: string
+          description: Target shopping cart UUID
+        tax_rate:
+          type: number
+          format: double
+          default: 0.07
+          description: "Tax rate for total calculation (default: 0.07)"
+
+  responses:
+    SuccessResponse:
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+
+    BadRequest:
+      description: Bad request — invalid parameters or missing required fields
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            statusCode: 400
+            body:
+              error: "Bad request"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            statusCode: 404
+            body:
+              error: "Not found"
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            statusCode: 500
+            body:
+              error: "Internal server error"

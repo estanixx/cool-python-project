@@ -1,0 +1,36 @@
+variable "stage" {
+  description = "Deployment stage (staging or prod)."
+  type        = string
+  default     = "staging"
+}
+
+variable "aws_region" {
+  description = "AWS region for resources."
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "aws_endpoint_url" {
+  description = "Optional AWS endpoint override (leave empty for AWS)."
+  type        = string
+  default     = ""
+}
+
+variable "mcp_image_tag" {
+  description = "Docker image tag for the MCP server ECS task. Passed from CI/CD."
+  type        = string
+  default     = "latest"
+}
+
+variable "github_token" {
+  description = "GitHub Personal Access Token with repo scope for Amplify repo linking. Store in GitHub Secrets as GH_PAT. Pass empty string to skip repo linking."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "alarm_email" {
+  description = "Email address for CloudWatch alarm notifications via SNS."
+  type        = string
+  default     = "juaneste687@gmail.com"
+}
