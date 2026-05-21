@@ -902,11 +902,11 @@ locals {
           view    = "timeSeries"
         }
       },
-      # Row 2: API Gateway
+      # Row 2: API Gateway (HTTP API v2 uses ApiId dimension, not ApiName)
       { type = "metric", x = 0, y = 6, width = 8, height = 6,
         properties = {
           title   = "API Gateway — Count",
-          metrics = [["AWS/ApiGateway", "Count", "ApiName", "serverless-crud-${var.stage}", { stat = "Sum" }]],
+          metrics = [["AWS/ApiGateway", "Count", "ApiId", aws_apigatewayv2_api.crud_api.id, { stat = "Sum" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
@@ -914,7 +914,7 @@ locals {
       { type = "metric", x = 8, y = 6, width = 8, height = 6,
         properties = {
           title   = "API Gateway — Latency",
-          metrics = [["AWS/ApiGateway", "Latency", "ApiName", "serverless-crud-${var.stage}", { stat = "Average" }]],
+          metrics = [["AWS/ApiGateway", "Latency", "ApiId", aws_apigatewayv2_api.crud_api.id, { stat = "Average" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
@@ -923,7 +923,7 @@ locals {
         properties = {
           title = "API Gateway — 4xx/5xx",
           metrics = [
-            ["AWS/ApiGateway", "4xx", "ApiName", "serverless-crud-${var.stage}", { stat = "Sum" }],
+            ["AWS/ApiGateway", "4xx", "ApiId", aws_apigatewayv2_api.crud_api.id, { stat = "Sum" }],
             [".", "5xx", ".", ".", { stat = "Sum" }]
           ],
           region = var.aws_region
@@ -955,11 +955,11 @@ locals {
           view    = "timeSeries"
         }
       },
-      # Row 4: ALB
+      # Row 4: ALB (CloudWatch requires full LoadBalancer name with unique suffix)
       { type = "metric", x = 0, y = 18, width = 8, height = 6,
         properties = {
           title   = "ALB — Request Count",
-          metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Sum" }]],
+          metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", aws_lb.mcp[0].name, { stat = "Sum" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
@@ -967,7 +967,7 @@ locals {
       { type = "metric", x = 8, y = 18, width = 8, height = 6,
         properties = {
           title   = "ALB — Target Response Time",
-          metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Average" }]],
+          metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", aws_lb.mcp[0].name, { stat = "Average" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
@@ -975,7 +975,7 @@ locals {
       { type = "metric", x = 16, y = 18, width = 8, height = 6,
         properties = {
           title   = "ALB — Healthy Host Count",
-          metrics = [["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", "app/mcp-alb-${var.stage}", { stat = "Average" }]],
+          metrics = [["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", aws_lb.mcp[0].name, { stat = "Average" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }

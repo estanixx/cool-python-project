@@ -1,5 +1,14 @@
+/**
+ * Resolve the API base URL.
+ *
+ * - `API_URL` is available in SSR runtime (Amplify server components).
+ * - `NEXT_PUBLIC_API_URL` is inlined at build time for client-side.
+ * - Falls back to `/api/proxy` for local development.
+ */
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "/api/proxy";
+  process.env.API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "/api/proxy";
 
 /**
  * Centralized API client for API Gateway v2 Lambda proxy integrations.
