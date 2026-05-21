@@ -27,3 +27,18 @@ output "amplify_branch_url" {
   description = "AWS Amplify app URL. Actual URL depends on the branch connected via Amplify Console."
   value       = "https://main.${aws_amplify_app.website.id}.amplifyapp.com"
 }
+
+output "mcp_alb_dns_name" {
+  description = "ALB DNS name for MCP server (null if enable_alb=false)."
+  value       = module.crud.alb_dns_name
+}
+
+output "mcp_service_endpoint" {
+  description = "MCP server service endpoint URL."
+  value       = module.crud.mcp_service_endpoint
+}
+
+output "amplify_default_domain" {
+  description = "Amplify default domain for the website."
+  value       = aws_amplify_app.website.default_domain
+}

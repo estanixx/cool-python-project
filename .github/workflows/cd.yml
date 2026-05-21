@@ -158,6 +158,16 @@ jobs:
           TF_VAR_github_token: ${{ secrets.GH_PAT }}
         run: terraform apply -var="mcp_image_tag=${{ steps.image-tag.outputs.tag }}" -auto-approve -input=false
 
+      - name: Print Deployment Outputs
+        if: github.ref == 'refs/heads/main'
+        working-directory: infra/prod
+        run: |
+          echo "=== Deployment Outputs ==="
+          echo "API Gateway: $(terraform output -raw api_endpoint)"
+          echo "MCP ALB:     $(terraform output -raw mcp_alb_dns_name || echo 'not enabled')"
+          echo "MCP Service: $(terraform output -raw mcp_service_endpoint || echo 'not enabled')"
+          echo "Amplify:     $(terraform output -raw amplify_default_domain)"
+
   deploy-amplify:
     name: Deploy Website via Amplify
     runs-on: ubuntu-latest

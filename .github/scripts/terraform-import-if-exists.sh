@@ -32,7 +32,23 @@ import_ecr_if_exists() {
   fi
 }
 
-import_log_group_if_exists "$LOG_GROUP_VPC" "module.crud.aws_cloudwatch_log_group.vpc_flow_logs[0]"
-import_log_group_if_exists "$LOG_GROUP_ECS" "module.crud.aws_cloudwatch_log_group.mcp_server[0]"
-import_log_group_if_exists "$LOG_GROUP_API_GW" "module.crud.aws_cloudwatch_log_group.api_gw_access_logs[0]"
-import_ecr_if_exists "$ECR_REPOSITORY" "module.crud.aws_ecr_repository.mcp_server[0]"
+import_if_state_missing() {
+  local terraform_address="$1"
+  shift
+  local import_fn="$@"
+
+  if terraform state show "$terraform_address" >/dev/null 2>&1; then
+    echo "SKIP: $terraform_address already in state"
+    return 0
+  fi
+  $import_fn
+}
+
+import_if_state_missing "module.crud.aws_cloudwatch_log_group.vpc_flow_logs[0]" \
+  import_log_group_if_exists "$LOG_GROUP_VPC" "module.crud.aws_cloudwatch_log_group.vpc_flow_logs[0]"
+import_if_state_missing "module.crud.aws_cloudwatch_log_group.mcp_server[0]" \
+  import_log_group_if_exists "$LOG_GROUP_ECS" "module.crud.aws_cloudwatch_log_group.mcp_server[0]"
+import_if_state_missing "module.crud.aws_cloudwatch_log_group.api_gw_access_logs[0]" \
+  import_log_group_if_exists "$LOG_GROUP_API_GW" "module.crud.aws_cloudwatch_log_group.api_gw_access_logs[0]"
+import_if_state_missing "module.crud.aws_ecr_repository.mcp_server[0]" \
+  import_ecr_if_exists "$ECR_REPOSITORY" "module.crud.aws_ecr_repository.mcp_server[0]"

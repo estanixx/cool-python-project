@@ -87,6 +87,23 @@ website/
 
 The site is auto-deployed to Amplify on push to the connected branch. Build spec is at `amplify.yml` (repo root) with `appRoot: website`.
 
+### Amplify Domain Outputs
+
+After `terraform apply` in `infra/prod`, the website domain is available as outputs:
+
+```bash
+# Amplify app ID
+terraform -chdir=infra/prod output amplify_app_id
+
+# Default domain (e.g., d1234567890.amplifyapp.com)
+terraform -chdir=infra/prod output amplify_default_domain
+
+# Constructed URL for main branch
+terraform -chdir=infra/prod output amplify_branch_url
+```
+
+The CD workflow also prints the Amplify default domain in the deploy job logs after a successful apply.
+
 Environment variables for production are set via Terraform (`infra/prod/amplify.tf`):
 
 | Variable | Source | Description |

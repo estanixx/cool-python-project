@@ -2,12 +2,21 @@
 
 Full-stack serverless application: Python Lambda API + Next.js frontend + MCP server, deployed to AWS.
 
-```
- User / AI Client
-      │
-      ├── Browser ──► Next.js SSR (Amplify) ──► API Gateway ──► Lambda ──► DynamoDB
-      │
-      └── AI Client ──► MCP Server (ECS) ─────► API Gateway ──► Lambda ──► DynamoDB
+## Architecture
+
+```mermaid
+graph LR
+  User -->|Browser| Amplify[Next.js SSR / Amplify]
+  User -->|AI Client| MCP[MCP Server / ECS]
+  Amplify -->|API calls| GW[API Gateway v2]
+  MCP -->|API calls| GW
+  GW -->|invoke| L1[Lambda: Dictionary]
+  GW -->|invoke| L2[Lambda: Product]
+  GW -->|invoke| L3[Lambda: ShoppingCart]
+  GW -->|invoke| L4[Lambda: Word Trick]
+  L1 --> D1[(DynamoDB)]
+  L2 --> D2[(DynamoDB)]
+  L3 --> D3[(DynamoDB)]
 ```
 
 ## Quick Start (Full Stack Dev)
@@ -36,17 +45,21 @@ The terraform-setup container auto-deploys local infrastructure (DynamoDB tables
 │   └── lib/                      # API client, utilities
 ├── mcp-server/                   # MCP server (FastMCP + Uvicorn)
 ├── infra/                        # Terraform infrastructure
-│   ├── modules/crud/             # Reusable module (DynamoDB, Lambda, API GW)
+│   ├── modules/crud/             # Reusable module (DynamoDB, Lambda, API GW, ECS, ALB)
 │   ├── test/                     # Local dev environment (Floci)
 │   ├── prod/                     # Production AWS environment
 │   ├── Dockerfile.terraform      # Init container for local infra
 │   └── docker-entrypoint-terraform.sh
 ├── .github/                      # CI/CD pipelines
+│   ├── scripts/                  # Helper scripts (import-if-exists)
 │   ├── workflows/ci.yml          # Tests, Terraform, SonarQube, Trivy
 │   ├── workflows/cd.yml          # Deploy to AWS production
 │   └── workflows/codeql.yml      # Security analysis
 ├── amplify.yml                   # Amplify build spec (appRoot: website)
 ├── docker-compose.yml            # Local dev stack
+├── OBSERVABILITY.md              # CloudWatch monitoring inventory
+├── opencode.json                 # OpenCode AI agent configuration
+├── sonar-project.properties      # SonarQube project config
 └── README.md
 ```
 
@@ -83,7 +96,7 @@ See [Infrastructure README](infra/README.md) for deployment guide.
 
 ### CI/CD (`.github/workflows/`)
 - **CI** — Python tests, TypeScript check, Terraform validate, Trivy scan, SonarQube, OpenAPI lint
-- **CD** — Deploy infra to AWS on push to `main`
+- **CD** — Deploy infra to AWS on push to `main` with import-if-exists safety for persistent resources
 - **CodeQL** — Weekly security analysis
 
 See [Workflows README](.github/workflows/README.md) for details.

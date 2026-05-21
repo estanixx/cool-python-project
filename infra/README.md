@@ -35,6 +35,11 @@ Defines **what resources** to create, without specifying **where**. It is a temp
 - 3 Lambda functions with environment variables
 - API Gateway v2 (HTTP API) with routes and Lambda integrations
 - Lambda permissions for API Gateway invocation
+- ECS Fargate cluster + service for MCP server (prod, when `enable_alb=true`)
+- Application Load Balancer (ALB) for ECS service (prod, when `enable_alb=true`)
+- VPC, subnets, security groups (prod, when `enable_alb=true`)
+- ECR repository for MCP server images
+- CloudWatch log groups, metric filters, and dashboard
 
 It does **not** know whether it deploys to Floci or AWS real. It only receives variables.
 
@@ -102,6 +107,24 @@ terraform -chdir=infra/prod apply
 # 3. Lambda zips are auto-generated during plan/apply
 #    No manual zip creation needed.
 ```
+
+### Import-if-exists (production automation)
+
+Some AWS resources can persist across destroys (especially CloudWatch log groups and ECR). The CD pipeline runs a pre-step to import these if they already exist:
+
+- `/aws/vpc/flow-logs/prod`
+- `/ecs/mcp-server-prod`
+- `/api-gw/access-logs-prod`
+- `mcp-server-prod` (ECR repository)
+
+Script: `.github/scripts/terraform-import-if-exists.sh`
+
+**How it works (two-layer guard)**:
+
+1. **State check** — `import_if_state_missing()` runs `terraform state show <address>` first. If the resource is already in Terraform state, the import is skipped immediately.
+2. **AWS check** — If not in state, the original `import_*_if_exists()` functions check the AWS API. Only if the resource exists in AWS does `terraform import` run.
+
+This prevents "resource already managed" errors on repeated CD runs while still adopting orphaned resources.
 
 ## Auto-Generated Lambda Zips
 
@@ -187,6 +210,24 @@ This allows the same Lambda code to route to Floci (local) or AWS (prod) based o
 | `enable_alb` | `false` | Provision ALB + ECS for MCP server |
 | `mcp_image_tag` | `"latest"` | ECS container image tag |
 | `api_gateway_cors_origins` | `["*"]` | Allowed CORS origins for API Gateway — restrict to Amplify domain in prod |
+
+## Deployment Outputs (production)
+
+After `terraform apply` in `infra/prod`, these outputs are available:
+
+| Output | Source | Description |
+|--------|--------|-------------|
+| `api_endpoint` | `module.crud.api_endpoint` | API Gateway HTTP API invoke URL |
+| `table_names` | `module.crud.table_names` | Map of DynamoDB table names |
+| `lambda_arns` | `module.crud.lambda_arns` | Map of Lambda function ARNs |
+| `lambda_role_arn` | `module.crud.lambda_role_arn` | IAM role ARN for Lambda execution |
+| `mcp_alb_dns_name` | `module.crud.alb_dns_name` | ALB DNS name (null if `enable_alb=false`) |
+| `mcp_service_endpoint` | `module.crud.mcp_service_endpoint` | MCP server endpoint URL |
+| `amplify_app_id` | `aws_amplify_app.website.id` | Amplify application ID |
+| `amplify_branch_url` | Computed | Amplify website URL for main branch |
+| `amplify_default_domain` | `aws_amplify_app.website.default_domain` | Amplify default domain |
+
+View outputs: `terraform -chdir=infra/prod output`
 
 ## DynamoDB Tables
 

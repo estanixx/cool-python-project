@@ -115,6 +115,27 @@ word_trick(sentence="The quick brown fox")
 # Returns: "Tqbf" (T from "The", q from "quick", b from "brown", f from "fox")
 ```
 
+## Production Endpoint (ALB)
+
+When deployed to production with `enable_alb=true`, the MCP server runs behind an Application Load Balancer:
+
+```bash
+# Get the ALB DNS name after terraform apply
+terraform -chdir=infra/prod output mcp_alb_dns_name
+
+# Or use the service endpoint (includes http:// prefix)
+terraform -chdir=infra/prod output mcp_service_endpoint
+```
+
+The ALB endpoint is also printed in the CD workflow deploy job logs after a successful `terraform apply`.
+
+### Connecting AI Clients to Production
+
+Configure your MCP client to connect to the ALB endpoint:
+```
+http://<alb-dns-name>/sse
+```
+
 ## Configuration
 
 ### Environment Variables

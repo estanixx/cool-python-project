@@ -217,6 +217,22 @@ from .my_domain_dao import MyDomainDAO
 - Integration tests against Floci
 - Handler unit tests for operation routing
 
+## OpenAPI Specification
+
+The API has an OpenAPI 3.0.3 specification at `api/openapi.yaml` that documents all routes, request/response shapes, and error formats.
+
+### Viewing the spec
+```bash
+# Lint the spec (requires @stoplight/spectral-cli)
+npx @stoplight/spectral-cli lint api/openapi.yaml
+```
+
+### What's documented
+- All 4 domain routes: `/dictionary`, `/product`, `/shopping-cart`, `/word-trick`
+- HTTP methods, parameters, request bodies, and response schemas
+- CORS configuration and deployment notes
+- The spec is linted in CI via Spectral (`.spectral.yaml` extends `spectral:oas`)
+
 ## Environment Variables
 
 | Variable | Default | Description |
