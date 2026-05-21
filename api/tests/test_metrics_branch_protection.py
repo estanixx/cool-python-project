@@ -28,26 +28,32 @@ def read_mcp(relative_path: str) -> str:
 # ---------------------------------------------------------------------------
 
 class TestDynamoDBMetrics(unittest.TestCase):
-    """Dashboard MUST use ReadRequestUnits/WriteRequestUnits for PAY_PER_REQUEST tables."""
+    """Dashboard MUST use Consumed*CapacityUnits for PAY_PER_REQUEST tables.
+    
+    On-demand (PAY_PER_REQUEST) tables do NOT emit ReadRequestUnits or
+    WriteRequestUnits — those metrics exist only for provisioned mode.
+    The correct metrics are ConsumedReadCapacityUnits and
+    ConsumedWriteCapacityUnits.
+    """
 
     def _content(self) -> str:
         return read_infra("modules/crud/main.tf")
 
-    def test_dashboard_uses_read_request_units(self):
+    def test_dashboard_uses_consumed_read_capacity(self):
         content = self._content()
-        self.assertIn("ReadRequestUnits", content)
+        self.assertIn("ConsumedReadCapacityUnits", content)
 
-    def test_dashboard_uses_write_request_units(self):
+    def test_dashboard_uses_consumed_write_capacity(self):
         content = self._content()
-        self.assertIn("WriteRequestUnits", content)
+        self.assertIn("ConsumedWriteCapacityUnits", content)
 
-    def test_dashboard_no_consumed_read_capacity(self):
+    def test_dashboard_no_read_request_units(self):
         content = self._content()
-        self.assertNotIn("ConsumedReadCapacityUnits", content)
+        self.assertNotIn("ReadRequestUnits", content)
 
-    def test_dashboard_no_consumed_write_capacity(self):
+    def test_dashboard_no_write_request_units(self):
         content = self._content()
-        self.assertNotIn("ConsumedWriteCapacityUnits", content)
+        self.assertNotIn("WriteRequestUnits", content)
 
 
 # ---------------------------------------------------------------------------

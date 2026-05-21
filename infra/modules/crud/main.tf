@@ -1145,7 +1145,7 @@ locals {
         }
       },
       # Row 5: DynamoDB — all 3 tables (dictionary, product, shopping_cart)
-      # On-demand tables use Consumed* metrics, not ReadRequestUnits/WriteRequestUnits
+      # On-demand tables use Consumed* metrics (provisioned-mode request units are not emitted)
       { type = "metric", x = 0, y = 24, width = 8, height = 6,
         properties = {
           title = "DynamoDB — Read Capacity",
