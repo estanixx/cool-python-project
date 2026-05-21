@@ -112,3 +112,13 @@ output "alarm_arns" {
     alb_healthy_hosts = var.enable_alb ? aws_cloudwatch_metric_alarm.alb_healthy_hosts[0].arn : null
   } : null
 }
+
+output "word_trick_lambda_arn" {
+  description = "Word Trick Lambda function ARN (null if enable_word_trick=false)."
+  value       = var.enable_word_trick ? aws_lambda_function.word_trick[0].arn : null
+}
+
+output "ecs_cluster_name" {
+  description = "ECS cluster name (null if enable_ecs=false)."
+  value       = var.enable_ecs ? aws_ecs_cluster.mcp[0].name : null
+}

@@ -29,13 +29,13 @@ output "mcp_service_endpoint" {
 }
 
 output "word_trick_lambda_arn" {
-  description = "Word Trick Lambda function ARN."
-  value       = module.crud.lambda_arns.word_trick
+  description = "Word Trick Lambda function ARN (null if disabled)."
+  value       = module.crud.word_trick_lambda_arn
 }
 
 output "ecs_cluster_name" {
   description = "ECS cluster name."
-  value       = module.crud.mcp_ecr_repository_url != null ? "mcp-cluster-${var.stage}" : null
+  value       = module.crud.ecs_cluster_name
 }
 
 output "sns_topic_arn" {
