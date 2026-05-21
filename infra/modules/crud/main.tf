@@ -918,8 +918,13 @@ resource "aws_cloudwatch_metric_alarm" "mcp_tool_errors" {
   period              = 300
   statistic           = "Sum"
   threshold           = 0
+  treat_missing_data  = "notBreaching"
   alarm_description   = "Alert when MCP tool error count exceeds 0"
   alarm_actions       = [aws_sns_topic.alarm_notifications[0].arn]
+
+  dimensions = {
+    ToolName = "_call_api"
+  }
 
   tags = local.tags
 }
@@ -929,16 +934,42 @@ resource "aws_cloudwatch_metric_alarm" "apigw_5xx" {
   alarm_name          = "APIGW-5xx-${var.stage}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
-  metric_name         = "5xx"
-  namespace           = "AWS/ApiGateway"
-  period              = 300
-  statistic           = "Sum"
   threshold           = 0
-  alarm_description   = "Alert when API Gateway 5xx error count exceeds 0"
+  treat_missing_data  = "notBreaching"
+  alarm_description   = "Alert when API Gateway 4xx or 5xx error count exceeds 0"
   alarm_actions       = [aws_sns_topic.alarm_notifications[0].arn]
 
-  dimensions = {
-    ApiId = aws_apigatewayv2_api.crud_api.id
+  metric_query {
+    id          = "e1"
+    expression  = "m1 + m2"
+    label       = "TotalErrors"
+    return_data = true
+  }
+
+  metric_query {
+    id = "m1"
+    metric {
+      metric_name = "4xx"
+      namespace   = "AWS/ApiGateway"
+      period      = 300
+      stat        = "Sum"
+      dimensions = {
+        ApiId = aws_apigatewayv2_api.crud_api.id
+      }
+    }
+  }
+
+  metric_query {
+    id = "m2"
+    metric {
+      metric_name = "5xx"
+      namespace   = "AWS/ApiGateway"
+      period      = 300
+      stat        = "Sum"
+      dimensions = {
+        ApiId = aws_apigatewayv2_api.crud_api.id
+      }
+    }
   }
 
   tags = local.tags
@@ -1000,7 +1031,8 @@ resource "aws_cloudwatch_metric_alarm" "alb_healthy_hosts" {
   alarm_actions       = [aws_sns_topic.alarm_notifications[0].arn]
 
   dimensions = {
-    LoadBalancer = aws_lb.mcp[0].name
+    LoadBalancer = aws_lb.mcp[0].arn_suffix
+    TargetGroup  = element(split(":", aws_lb_target_group.mcp[0].arn), 5)
   }
 
   tags = local.tags
@@ -1011,21 +1043,25 @@ resource "aws_cloudwatch_metric_alarm" "alb_healthy_hosts" {
 locals {
   dashboard_body = jsonencode({
     widgets = [
-      # Row 1: MCP Custom Metrics
+      # Row 1: MCP Custom Metrics — SEARCH aggregates across all ToolName dimension values
       { type = "metric", x = 0, y = 0, width = 12, height = 6,
         properties = {
-          title   = "MCP Tool Calls",
-          metrics = [["MCP/Server", "ToolCalls", { stat = "Sum", period = 300 }]],
-          region  = var.aws_region
-          view    = "timeSeries"
+          title = "MCP Tool Calls",
+          metrics = [
+            [{ expression = "SEARCH('Namespace=\"MCP/Server\" MetricName=\"ToolCalls\"', 'Sum', 300)", id = "m1", label = "Tool Calls" }]
+          ],
+          region = var.aws_region
+          view   = "timeSeries"
         }
       },
       { type = "metric", x = 12, y = 0, width = 12, height = 6,
         properties = {
-          title   = "MCP Tool Errors",
-          metrics = [["MCP/Server", "ToolErrors", { stat = "Sum", period = 300 }]],
-          region  = var.aws_region
-          view    = "timeSeries"
+          title = "MCP Tool Errors",
+          metrics = [
+            [{ expression = "SEARCH('Namespace=\"MCP/Server\" MetricName=\"ToolErrors\"', 'Sum', 300)", id = "m1", label = "Tool Errors" }]
+          ],
+          region = var.aws_region
+          view   = "timeSeries"
         }
       },
       # Row 2: API Gateway (HTTP API v2 uses ApiId dimension, not ApiName)
@@ -1076,17 +1112,18 @@ locals {
       { type = "metric", x = 16, y = 12, width = 8, height = 6,
         properties = {
           title   = "ECS — Running Task Count",
-          metrics = [["AWS/ECS", "RunningTaskCount", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Average" }]],
+          metrics = [["AWS/ECS", "LiveTaskCount", "ClusterName", "mcp-cluster-${var.stage}", "ServiceName", "mcp-server-service-${var.stage}", { stat = "Maximum" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
       },
-      # Row 4: ALB (CloudWatch requires full LoadBalancer name with unique suffix)
+      # Row 4: ALB — LoadBalancer dim uses arn_suffix (not name) to match CloudWatch metric dimension
+      # HealthyHostCount additionally requires TargetGroup dimension
       # Guarded with try() — ALB only exists when enable_alb=true
       { type = "metric", x = 0, y = 18, width = 8, height = 6,
         properties = {
           title   = "ALB — Request Count",
-          metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", try(aws_lb.mcp[0].name, "no-alb"), { stat = "Sum" }]],
+          metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", try(aws_lb.mcp[0].arn_suffix, "no-alb"), { stat = "Sum" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
@@ -1094,7 +1131,7 @@ locals {
       { type = "metric", x = 8, y = 18, width = 8, height = 6,
         properties = {
           title   = "ALB — Target Response Time",
-          metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", try(aws_lb.mcp[0].name, "no-alb"), { stat = "Average" }]],
+          metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", try(aws_lb.mcp[0].arn_suffix, "no-alb"), { stat = "Average" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
@@ -1102,29 +1139,47 @@ locals {
       { type = "metric", x = 16, y = 18, width = 8, height = 6,
         properties = {
           title   = "ALB — Healthy Host Count",
-          metrics = [["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", try(aws_lb.mcp[0].name, "no-alb"), { stat = "Average" }]],
+          metrics = [["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", try(aws_lb.mcp[0].arn_suffix, "no-alb"), "TargetGroup", try(element(split(":", aws_lb_target_group.mcp[0].arn), 5), "no-tg"), { stat = "Average" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
       },
-      # Row 5: DynamoDB
-      { type = "metric", x = 0, y = 24, width = 12, height = 6,
+      # Row 5: DynamoDB — all 3 tables (dictionary, product, shopping_cart)
+      # On-demand tables use Consumed* metrics, not ReadRequestUnits/WriteRequestUnits
+      { type = "metric", x = 0, y = 24, width = 8, height = 6,
         properties = {
-          title = "DynamoDB — Read/Write Capacity",
+          title = "DynamoDB — Read Capacity",
           metrics = [
-            ["AWS/DynamoDB", "ReadRequestUnits", "TableName", var.table_names.dictionary, { stat = "Sum" }],
-            [".", "WriteRequestUnits", ".", ".", { stat = "Sum" }]
+            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", var.table_names.dictionary, { stat = "Sum", label = "Dictionary" }],
+            [".", ".", ".", var.table_names.product, { stat = "Sum", label = "Product" }],
+            [".", ".", ".", var.table_names.shopping_cart, { stat = "Sum", label = "Cart" }]
           ],
           region = var.aws_region
           view   = "timeSeries"
         }
       },
-      { type = "metric", x = 12, y = 24, width = 12, height = 6,
+      { type = "metric", x = 8, y = 24, width = 8, height = 6,
         properties = {
-          title   = "DynamoDB — System Errors",
-          metrics = [["AWS/DynamoDB", "SystemErrors", "TableName", var.table_names.dictionary, { stat = "Sum" }]],
-          region  = var.aws_region
-          view    = "timeSeries"
+          title = "DynamoDB — Write Capacity",
+          metrics = [
+            ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", var.table_names.dictionary, { stat = "Sum", label = "Dictionary" }],
+            [".", ".", ".", var.table_names.product, { stat = "Sum", label = "Product" }],
+            [".", ".", ".", var.table_names.shopping_cart, { stat = "Sum", label = "Cart" }]
+          ],
+          region = var.aws_region
+          view   = "timeSeries"
+        }
+      },
+      { type = "metric", x = 16, y = 24, width = 8, height = 6,
+        properties = {
+          title = "DynamoDB — Request Latency",
+          metrics = [
+            ["AWS/DynamoDB", "SuccessfulRequestLatency", "TableName", var.table_names.dictionary, { stat = "Average", label = "Dictionary" }],
+            [".", ".", ".", var.table_names.product, { stat = "Average", label = "Product" }],
+            [".", ".", ".", var.table_names.shopping_cart, { stat = "Average", label = "Cart" }]
+          ],
+          region = var.aws_region
+          view   = "timeSeries"
         }
       },
       # Row 6: Lambda — all 4 functions
