@@ -33,7 +33,7 @@ STAGE = os.getenv("STAGE", "local")
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:4566")
 API_ID = os.getenv("API_ID", "")
 
-IS_PROD = STAGE == "prod"
+IS_PROD = STAGE != "local"
 
 # For local mode: Lambda direct invoke URL
 LAMBDA_INVOKE_URL = f"{API_BASE_URL}/2015-03-31/functions"
