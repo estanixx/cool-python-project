@@ -133,8 +133,11 @@ resource "aws_lambda_function" "dictionary" {
 
   environment {
     variables = {
-      STAGE            = var.stage
-      AWS_ENDPOINT_URL = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
+      STAGE                       = var.stage
+      AWS_ENDPOINT_URL            = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
+      DYNAMODB_TABLE_DICTIONARY   = var.table_names.dictionary
+      DYNAMODB_TABLE_PRODUCT      = var.table_names.product
+      DYNAMODB_TABLE_SHOPPING_CART = var.table_names.shopping_cart
     }
   }
 
@@ -152,8 +155,11 @@ resource "aws_lambda_function" "product" {
 
   environment {
     variables = {
-      STAGE            = var.stage
-      AWS_ENDPOINT_URL = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
+      STAGE                        = var.stage
+      AWS_ENDPOINT_URL             = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
+      DYNAMODB_TABLE_DICTIONARY    = var.table_names.dictionary
+      DYNAMODB_TABLE_PRODUCT       = var.table_names.product
+      DYNAMODB_TABLE_SHOPPING_CART = var.table_names.shopping_cart
     }
   }
 
@@ -171,8 +177,11 @@ resource "aws_lambda_function" "shopping_cart" {
 
   environment {
     variables = {
-      STAGE            = var.stage
-      AWS_ENDPOINT_URL = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
+      STAGE                        = var.stage
+      AWS_ENDPOINT_URL             = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
+      DYNAMODB_TABLE_DICTIONARY    = var.table_names.dictionary
+      DYNAMODB_TABLE_PRODUCT       = var.table_names.product
+      DYNAMODB_TABLE_SHOPPING_CART = var.table_names.shopping_cart
     }
   }
 
@@ -191,8 +200,11 @@ resource "aws_lambda_function" "word_trick" {
 
   environment {
     variables = {
-      STAGE            = var.stage
-      AWS_ENDPOINT_URL = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
+      STAGE                        = var.stage
+      AWS_ENDPOINT_URL             = var.lambda_env_endpoint_url != "" ? var.lambda_env_endpoint_url : var.aws_endpoint_url
+      DYNAMODB_TABLE_DICTIONARY    = var.table_names.dictionary
+      DYNAMODB_TABLE_PRODUCT       = var.table_names.product
+      DYNAMODB_TABLE_SHOPPING_CART = var.table_names.shopping_cart
     }
   }
 
