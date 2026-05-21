@@ -14,6 +14,7 @@ provider "aws" {
       iam          = endpoints.value
       apigateway   = endpoints.value
       apigatewayv2 = endpoints.value
+      ec2          = endpoints.value
     }
   }
 }

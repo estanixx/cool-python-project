@@ -160,6 +160,9 @@ module "crud" {
 
   # Lambda containers reach Floci via Docker network hostname
   lambda_env_endpoint_url = "http://floci:4566"
+
+  # Test creates its own standalone word_trick Lambda outside the module
+  enable_word_trick = false
 }
 
 # Word Trick Lambda (standalone, no DynamoDB needed)
