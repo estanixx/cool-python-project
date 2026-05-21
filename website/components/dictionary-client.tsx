@@ -36,9 +36,9 @@ export default function DictionaryClient({
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Re-fetch on mount if the server-side fetch failed
+  // Re-fetch on mount if the server-side fetch failed or returned no data
   useEffect(() => {
-    if (fetchError) {
+    if (fetchError || entries.length === 0) {
       setRefetching(true);
       api<{ entries: DictionaryEntryRaw[] }>("/dictionary?operation=list")
         .then((data) => {

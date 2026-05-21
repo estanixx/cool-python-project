@@ -3,6 +3,9 @@ import { DictionaryEntry, DictionaryEntryRaw, normalizeEntry } from "@/types/api
 import HomeNav from "@/components/home-nav";
 import DictionaryClient from "@/components/dictionary-client";
 
+// Always SSR at request time so API_URL is read from runtime env vars
+export const dynamic = "force-dynamic";
+
 async function fetchEntries(): Promise<{
   entries: DictionaryEntry[];
   error: boolean;
