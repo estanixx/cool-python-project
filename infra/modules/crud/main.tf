@@ -1070,10 +1070,11 @@ locals {
         }
       },
       # Row 4: ALB (CloudWatch requires full LoadBalancer name with unique suffix)
+      # Guarded with try() — ALB only exists when enable_alb=true
       { type = "metric", x = 0, y = 18, width = 8, height = 6,
         properties = {
           title   = "ALB — Request Count",
-          metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", aws_lb.mcp[0].name, { stat = "Sum" }]],
+          metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", try(aws_lb.mcp[0].name, "no-alb"), { stat = "Sum" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
@@ -1081,7 +1082,7 @@ locals {
       { type = "metric", x = 8, y = 18, width = 8, height = 6,
         properties = {
           title   = "ALB — Target Response Time",
-          metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", aws_lb.mcp[0].name, { stat = "Average" }]],
+          metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", try(aws_lb.mcp[0].name, "no-alb"), { stat = "Average" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
@@ -1089,7 +1090,7 @@ locals {
       { type = "metric", x = 16, y = 18, width = 8, height = 6,
         properties = {
           title   = "ALB — Healthy Host Count",
-          metrics = [["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", aws_lb.mcp[0].name, { stat = "Average" }]],
+          metrics = [["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", try(aws_lb.mcp[0].name, "no-alb"), { stat = "Average" }]],
           region  = var.aws_region
           view    = "timeSeries"
         }
