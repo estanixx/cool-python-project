@@ -1,0 +1,60 @@
+services:
+  floci:
+    image: floci/floci:latest
+    ports:
+      - "4566:4566"
+    environment:
+      LOCALSTACK_HOST: floci
+      PERSISTENCE: "1"
+      DOCKER_HOST: unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-s", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      retries: 12
+
+  terraform-setup:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.terraform
+    depends_on:
+      floci:
+        condition: service_healthy
+    volumes:
+      - ./infra:/infra
+      - ./api:/api
+      - shared-env:/shared
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+
+  mcp-server:
+    build: ./mcp-server
+    ports:
+      - "8000:8000"
+    depends_on:
+      terraform-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    volumes:
+      - shared-env:/shared:ro
+
+  website:
+    build:
+      context: ./website
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      terraform-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    volumes:
+      - shared-env:/shared:ro
+      - ./website:/app
+      - /app/node_modules
+
+volumes:
+  shared-env:

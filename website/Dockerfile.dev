@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies first (caching layer)
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Copy entrypoint
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Entrypoint sources shared env vars from terraform-setup
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["npm", "run", "dev"]
+
+# Expose Next.js dev port
+EXPOSE 3000

@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: [staging, main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  test:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r api/requirements.txt
+          pip install -r mcp-server/requirements.txt
+
+      - name: Run unit tests
+        run: python -m unittest discover -s api/tests -p "test_*.py" -v
+
+  website-test:
+    name: Website TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          cd website
+          npm ci
+
+      - name: TypeScript check
+        run: |
+          cd website
+          npx tsc --noEmit
+
+  terraform:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive infra/
+
+      - name: Terraform Validate (test)
+        run: |
+          cd infra/test
+          terraform init -backend=false
+          terraform validate
+
+      - name: Terraform Validate (prod)
+        run: |
+          cd infra/prod
+          terraform init -backend=false
+          terraform validate
+
+      - name: Run Trivy terraform scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: infra/
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "0"
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        with:
+          sarif_file: trivy-results.sarif
+
+  sonarqube:
+    name: SonarQube Analysis
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # 1. Map secret to job-level env
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          pip install -r api/requirements.txt
+          cd website && npm ci
+
+      - name: SonarQube Scan
+        if: env.SONAR_TOKEN != '' # 2. Check the env variable here instead
+        continue-on-error: true
+        uses: SonarSource/sonarcloud-github-action@v2
+
+  openapi-validate:
+    name: OpenAPI Spec Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Spectral
+        run: npm install -g @stoplight/spectral-cli
+
+      - name: Lint OpenAPI spec
+        run: spectral lint api/openapi.yaml --fail-severity error
