@@ -42,8 +42,8 @@ resource "aws_amplify_app" "website" {
     # API_URL — available in SSR runtime (server components).
     API_URL = trimsuffix(module.crud.api_endpoint, "/")
     # NEXT_PUBLIC_API_URL — inlined at build time for client-side.
-    NEXT_PUBLIC_API_URL = trimsuffix(module.crud.api_endpoint, "/")
-    NODE_ENV            = "staging"
+    NEXT_PUBLIC_API_URL                    = trimsuffix(module.crud.api_endpoint, "/")
+    NODE_ENV                               = "staging"
     AMPLIFY_YARN_ENABLE_IMMUTABLE_INSTALLS = "false"
   }
 

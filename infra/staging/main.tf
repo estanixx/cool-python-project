@@ -108,7 +108,7 @@ module "crud" {
   enable_word_trick    = true
   enable_ecs           = true
   enable_observability = true
-  enable_alb       = true  # Full parity with prod
+  enable_alb           = true # Full parity with prod
   mcp_image_tag        = var.mcp_image_tag
   alarm_email          = var.alarm_email
 
