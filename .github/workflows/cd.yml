@@ -10,7 +10,6 @@ permissions:
 
 env:
   AWS_ROLE_ARN: ${{ vars.ROLE_ARN }}
-  ECR_REPOSITORY: mcp-server-prod
   AWS_REGION: us-east-1
 
 jobs:
@@ -66,6 +65,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set ECR repository name
+        id: ecr
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "repo=mcp-server-prod" >> "$GITHUB_OUTPUT"
+            echo "dir=infra/prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "repo=mcp-server-staging" >> "$GITHUB_OUTPUT"
+            echo "dir=infra/staging" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -76,11 +86,11 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init (ECR)
-        working-directory: infra/prod
+        working-directory: ${{ steps.ecr.outputs.dir }}
         run: terraform init
 
       - name: Terraform Apply (ECR repository)
-        working-directory: infra/prod
+        working-directory: ${{ steps.ecr.outputs.dir }}
         env:
           TF_VAR_github_token: ${{ secrets.GH_PAT }}
         run: terraform apply -target=module.crud.aws_ecr_repository.mcp_server -var="mcp_image_tag=${{ github.sha }}" -auto-approve -input=false
@@ -92,6 +102,7 @@ jobs:
       - name: Build and push Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ steps.ecr.outputs.repo }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG mcp-server/
@@ -152,7 +163,7 @@ jobs:
         working-directory: ${{ steps.tf-dir.outputs.dir }}
         env:
           STAGE: ${{ steps.tf-dir.outputs.stage }}
-          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
+          ECR_REPOSITORY: mcp-server-prod
         run: |
           chmod +x ../../.github/scripts/terraform-import-if-exists.sh
           ../../.github/scripts/terraform-import-if-exists.sh
