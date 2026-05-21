@@ -3,7 +3,7 @@
   "mcp": {
     "serverless-prod": {
       "type": "remote",
-      "url": "http://mcp-alb-staging-777319492.us-east-1.elb.amazonaws.com/sse"
+      "url": "http://mcp-alb-staging-1096614008.us-east-1.elb.amazonaws.com/sse"
     },
     "serverless-dev": {
       "type": "remote",

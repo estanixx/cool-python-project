@@ -3,6 +3,9 @@ import { Product, ProductList } from "@/types/api";
 import HomeNav from "@/components/home-nav";
 import ShoppingClient from "@/components/shopping-client";
 
+// Always SSR at request time so API_URL is read from runtime env vars
+export const dynamic = "force-dynamic";
+
 async function fetchProducts(): Promise<Product[]> {
   try {
     const data = await api<ProductList>("/product?operation=list");
