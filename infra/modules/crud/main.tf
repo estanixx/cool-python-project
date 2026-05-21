@@ -180,7 +180,7 @@ resource "aws_lambda_function" "shopping_cart" {
 }
 
 resource "aws_lambda_function" "word_trick" {
-  count            = var.stage == "prod" ? 1 : 0
+  count            = var.enable_word_trick ? 1 : 0
   function_name    = var.lambda_function_names.word_trick
   role             = aws_iam_role.lambda_role.arn
   handler          = var.lambda_handler_names.word_trick
@@ -219,7 +219,7 @@ resource "aws_apigatewayv2_stage" "default" {
   auto_deploy = true
 
   dynamic "access_log_settings" {
-    for_each = var.stage == "prod" ? [1] : []
+    for_each = var.enable_observability ? [1] : []
     content {
       destination_arn = aws_cloudwatch_log_group.api_gw_access_logs[0].arn
       format = jsonencode({
@@ -295,7 +295,7 @@ resource "aws_apigatewayv2_route" "shopping_cart_item" {
 }
 
 resource "aws_apigatewayv2_integration" "word_trick" {
-  count                  = var.stage == "prod" ? 1 : 0
+  count                  = var.enable_word_trick ? 1 : 0
   api_id                 = aws_apigatewayv2_api.crud_api.id
   integration_type       = "AWS_PROXY"
   integration_uri        = aws_lambda_function.word_trick[0].invoke_arn
@@ -304,7 +304,7 @@ resource "aws_apigatewayv2_integration" "word_trick" {
 }
 
 resource "aws_apigatewayv2_route" "word_trick" {
-  count     = var.stage == "prod" ? 1 : 0
+  count     = var.enable_word_trick ? 1 : 0
   api_id    = aws_apigatewayv2_api.crud_api.id
   route_key = "ANY /word-trick"
   target    = "integrations/${aws_apigatewayv2_integration.word_trick[0].id}"
@@ -336,7 +336,7 @@ resource "aws_lambda_permission" "shopping_cart" {
 }
 
 resource "aws_lambda_permission" "word_trick" {
-  count         = var.stage == "prod" ? 1 : 0
+  count         = var.enable_word_trick ? 1 : 0
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.word_trick[0].function_name
@@ -482,7 +482,7 @@ resource "aws_flow_log" "main" {
 # --- ECS Fargate for MCP Server (Production only) ---
 
 resource "aws_ecr_repository" "mcp_server" {
-  count        = var.stage == "prod" ? 1 : 0
+  count        = var.enable_ecs ? 1 : 0
   name         = "mcp-server-${var.stage}"
   force_delete = true
 
@@ -496,7 +496,7 @@ resource "aws_ecr_repository" "mcp_server" {
 }
 
 resource "aws_ecs_cluster" "mcp" {
-  count = var.stage == "prod" ? 1 : 0
+  count = var.enable_ecs ? 1 : 0
   name  = "mcp-cluster-${var.stage}"
 
   setting {
@@ -508,7 +508,7 @@ resource "aws_ecs_cluster" "mcp" {
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
-  count = var.stage == "prod" ? 1 : 0
+  count = var.enable_ecs ? 1 : 0
   name  = "ecs-task-execution-role-${var.stage}"
 
   assume_role_policy = jsonencode({
@@ -526,13 +526,13 @@ resource "aws_iam_role" "ecs_task_execution_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
-  count      = var.stage == "prod" ? 1 : 0
+  count      = var.enable_ecs ? 1 : 0
   role       = aws_iam_role.ecs_task_execution_role[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 resource "aws_iam_role" "ecs_task_role" {
-  count = var.stage == "prod" ? 1 : 0
+  count = var.enable_ecs ? 1 : 0
   name  = "ecs-task-role-${var.stage}"
 
   assume_role_policy = jsonencode({
@@ -551,7 +551,7 @@ resource "aws_iam_role" "ecs_task_role" {
 
 # ALB Security Group (created when enable_alb=true)
 resource "aws_security_group" "alb" {
-  count       = var.enable_alb && var.stage == "prod" ? 1 : 0
+  count       = var.enable_alb && var.enable_ecs ? 1 : 0
   name        = "alb-sg-${var.stage}"
   description = "Security group for ALB"
   vpc_id      = aws_vpc.main[0].id
@@ -577,7 +577,7 @@ resource "aws_security_group" "alb" {
 
 # ECS Security Group — restricted to ALB when enable_alb=true
 resource "aws_security_group" "mcp_server" {
-  count       = var.stage == "prod" ? 1 : 0
+  count       = var.enable_ecs ? 1 : 0
   name        = "mcp-server-sg-${var.stage}"
   description = "Security group for MCP server"
   vpc_id      = var.enable_alb ? aws_vpc.main[0].id : data.aws_vpc.default[0].id
@@ -615,12 +615,12 @@ resource "aws_security_group" "mcp_server" {
 }
 
 data "aws_vpc" "default" {
-  count   = var.stage == "prod" && !var.enable_alb ? 1 : 0
+  count   = var.enable_ecs && !var.enable_alb ? 1 : 0
   default = true
 }
 
 resource "aws_ecs_task_definition" "mcp_server" {
-  count                    = var.stage == "prod" ? 1 : 0
+  count                    = var.enable_ecs ? 1 : 0
   family                   = "mcp-server-${var.stage}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -670,7 +670,7 @@ resource "aws_ecs_task_definition" "mcp_server" {
 }
 
 resource "aws_cloudwatch_log_group" "mcp_server" {
-  count             = var.stage == "prod" ? 1 : 0
+  count             = var.enable_ecs ? 1 : 0
   name              = "/ecs/mcp-server-${var.stage}"
   retention_in_days = 30
 
@@ -680,14 +680,14 @@ resource "aws_cloudwatch_log_group" "mcp_server" {
 # --- API Gateway Access Logs (prod only) ---
 
 resource "aws_cloudwatch_log_group" "api_gw_access_logs" {
-  count             = var.stage == "prod" ? 1 : 0
+  count             = var.enable_observability ? 1 : 0
   name              = "/api-gw/access-logs-${var.stage}"
   retention_in_days = 30
   tags              = local.tags
 }
 
 resource "aws_iam_role" "api_gw_cloudwatch" {
-  count = var.stage == "prod" ? 1 : 0
+  count = var.enable_observability ? 1 : 0
   name  = "api-gw-cloudwatch-role-${var.stage}"
 
   assume_role_policy = jsonencode({
@@ -705,7 +705,7 @@ resource "aws_iam_role" "api_gw_cloudwatch" {
 }
 
 resource "aws_iam_role_policy" "api_gw_cloudwatch" {
-  count = var.stage == "prod" ? 1 : 0
+  count = var.enable_observability ? 1 : 0
   name  = "api-gw-cloudwatch-policy-${var.stage}"
   role  = aws_iam_role.api_gw_cloudwatch[0].id
 
@@ -725,7 +725,7 @@ resource "aws_iam_role_policy" "api_gw_cloudwatch" {
 
 # ALB and Target Group (when enable_alb=true)
 resource "aws_lb" "mcp" {
-  count                      = var.enable_alb && var.stage == "prod" ? 1 : 0
+  count                      = var.enable_alb && var.enable_ecs ? 1 : 0
   name                       = "mcp-alb-${var.stage}"
   internal                   = false
   load_balancer_type         = "application"
@@ -737,7 +737,7 @@ resource "aws_lb" "mcp" {
 }
 
 resource "aws_lb_target_group" "mcp" {
-  count       = var.enable_alb && var.stage == "prod" ? 1 : 0
+  count       = var.enable_alb && var.enable_ecs ? 1 : 0
   name        = "mcp-tg-${var.stage}"
   port        = 8000
   protocol    = "HTTP"
@@ -758,7 +758,7 @@ resource "aws_lb_target_group" "mcp" {
 }
 
 resource "aws_lb_listener" "mcp_http" {
-  count             = var.enable_alb && var.stage == "prod" ? 1 : 0
+  count             = var.enable_alb && var.enable_ecs ? 1 : 0
   load_balancer_arn = aws_lb.mcp[0].arn
   port              = 80
   protocol          = "HTTP"
@@ -770,7 +770,7 @@ resource "aws_lb_listener" "mcp_http" {
 }
 
 resource "aws_ecs_service" "mcp_server" {
-  count           = var.stage == "prod" ? 1 : 0
+  count           = var.enable_ecs ? 1 : 0
   name            = "mcp-server-service-${var.stage}"
   cluster         = aws_ecs_cluster.mcp[0].id
   task_definition = aws_ecs_task_definition.mcp_server[0].arn
@@ -796,7 +796,7 @@ resource "aws_ecs_service" "mcp_server" {
 }
 
 data "aws_subnets" "default" {
-  count = var.stage == "prod" && !var.enable_alb ? 1 : 0
+  count = var.enable_ecs && !var.enable_alb ? 1 : 0
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.default[0].id]
@@ -806,7 +806,7 @@ data "aws_subnets" "default" {
 # --- Autoscaling (when enable_alb=true) ---
 
 resource "aws_appautoscaling_target" "mcp" {
-  count              = var.enable_alb && var.stage == "prod" ? 1 : 0
+  count              = var.enable_alb && var.enable_ecs ? 1 : 0
   max_capacity       = var.ecs_max_capacity
   min_capacity       = var.ecs_min_capacity
   resource_id        = "service/${aws_ecs_cluster.mcp[0].name}/${aws_ecs_service.mcp_server[0].name}"
@@ -815,7 +815,7 @@ resource "aws_appautoscaling_target" "mcp" {
 }
 
 resource "aws_appautoscaling_policy" "mcp_cpu" {
-  count              = var.enable_alb && var.stage == "prod" ? 1 : 0
+  count              = var.enable_alb && var.enable_ecs ? 1 : 0
   name               = "mcp-cpu-scaling-${var.stage}"
   policy_type        = "TargetTrackingScaling"
   resource_id        = aws_appautoscaling_target.mcp[0].resource_id
@@ -831,7 +831,7 @@ resource "aws_appautoscaling_policy" "mcp_cpu" {
 }
 
 resource "aws_appautoscaling_policy" "mcp_memory" {
-  count              = var.enable_alb && var.stage == "prod" ? 1 : 0
+  count              = var.enable_alb && var.enable_ecs ? 1 : 0
   name               = "mcp-memory-scaling-${var.stage}"
   policy_type        = "TargetTrackingScaling"
   resource_id        = aws_appautoscaling_target.mcp[0].resource_id
@@ -849,7 +849,7 @@ resource "aws_appautoscaling_policy" "mcp_memory" {
 # --- Observability: MCP Log Metric Filters (prod only) ---
 
 resource "aws_cloudwatch_log_metric_filter" "mcp_tool_calls" {
-  count          = var.stage == "prod" ? 1 : 0
+  count          = var.enable_observability ? 1 : 0
   name           = "MCPToolCalls"
   log_group_name = aws_cloudwatch_log_group.mcp_server[0].name
   pattern        = "{ $.status < 400 && $.tool = * }"
@@ -865,7 +865,7 @@ resource "aws_cloudwatch_log_metric_filter" "mcp_tool_calls" {
 }
 
 resource "aws_cloudwatch_log_metric_filter" "mcp_tool_errors" {
-  count          = var.stage == "prod" ? 1 : 0
+  count          = var.enable_observability ? 1 : 0
   name           = "MCPToolErrors"
   log_group_name = aws_cloudwatch_log_group.mcp_server[0].name
   pattern        = "{ $.status >= 400 && $.tool = * }"
@@ -883,21 +883,21 @@ resource "aws_cloudwatch_log_metric_filter" "mcp_tool_errors" {
 # --- Observability: SNS Topic + Alarms (prod only) ---
 
 resource "aws_sns_topic" "alarm_notifications" {
-  count = var.stage == "prod" ? 1 : 0
+  count = var.enable_observability ? 1 : 0
   name  = "mcp-server-alerts-${var.stage}"
 
   tags = local.tags
 }
 
 resource "aws_sns_topic_subscription" "email" {
-  count     = var.stage == "prod" ? 1 : 0
+  count     = var.enable_observability ? 1 : 0
   topic_arn = aws_sns_topic.alarm_notifications[0].arn
   protocol  = "email"
   endpoint  = var.alarm_email
 }
 
 resource "aws_cloudwatch_metric_alarm" "mcp_tool_errors" {
-  count               = var.stage == "prod" ? 1 : 0
+  count               = var.enable_observability ? 1 : 0
   alarm_name          = "MCP-ToolErrors-${var.stage}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
@@ -913,7 +913,7 @@ resource "aws_cloudwatch_metric_alarm" "mcp_tool_errors" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "apigw_5xx" {
-  count               = var.stage == "prod" ? 1 : 0
+  count               = var.enable_observability ? 1 : 0
   alarm_name          = "APIGW-5xx-${var.stage}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
@@ -933,7 +933,7 @@ resource "aws_cloudwatch_metric_alarm" "apigw_5xx" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_cpu" {
-  count               = var.stage == "prod" ? 1 : 0
+  count               = var.enable_observability ? 1 : 0
   alarm_name          = "ECS-CPU-${var.stage}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
@@ -954,7 +954,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cpu" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_memory" {
-  count               = var.stage == "prod" ? 1 : 0
+  count               = var.enable_observability ? 1 : 0
   alarm_name          = "ECS-Memory-${var.stage}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
@@ -975,7 +975,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_memory" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "alb_healthy_hosts" {
-  count               = var.enable_alb && var.stage == "prod" ? 1 : 0
+  count               = var.enable_alb && var.enable_observability ? 1 : 0
   alarm_name          = "ALB-HealthyHosts-${var.stage}"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 2
@@ -1169,7 +1169,7 @@ locals {
 }
 
 resource "aws_cloudwatch_dashboard" "main" {
-  count          = var.stage == "prod" ? 1 : 0
+  count          = var.enable_observability ? 1 : 0
   dashboard_name = "mcp-server-${var.stage}"
   dashboard_body = local.dashboard_body
 }

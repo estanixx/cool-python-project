@@ -28,3 +28,9 @@ variable "github_token" {
   sensitive   = true
   default     = ""
 }
+
+variable "alarm_email" {
+  description = "Email address for CloudWatch alarm notifications via SNS."
+  type        = string
+  default     = "juaneste687@gmail.com"
+}

@@ -102,11 +102,15 @@ data "archive_file" "word_trick" {
 module "crud" {
   source = "../modules/crud"
 
-  stage            = var.stage
-  aws_region       = var.aws_region
-  aws_endpoint_url = var.aws_endpoint_url
-  enable_alb       = false  # Staging: no ALB (cheaper, simpler)
-  mcp_image_tag    = var.mcp_image_tag
+  stage                = var.stage
+  aws_region           = var.aws_region
+  aws_endpoint_url     = var.aws_endpoint_url
+  enable_word_trick    = true
+  enable_ecs           = true
+  enable_observability = true
+  enable_alb           = false  # Staging: no ALB (cheaper, simpler)
+  mcp_image_tag        = var.mcp_image_tag
+  alarm_email          = var.alarm_email
 
   table_names = {
     dictionary    = "DictionaryStaging"

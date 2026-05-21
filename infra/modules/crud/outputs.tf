@@ -42,29 +42,29 @@ output "api_id" {
 
 output "mcp_ecr_repository_url" {
   description = "ECR repository URL for MCP server image."
-  value       = var.stage == "prod" ? aws_ecr_repository.mcp_server[0].repository_url : null
+  value       = var.enable_ecs ? aws_ecr_repository.mcp_server[0].repository_url : null
 }
 
 output "mcp_service_endpoint" {
   description = "MCP server service endpoint (ALB DNS when enabled, fallback otherwise)."
-  value = var.enable_alb && var.stage == "prod" ? "http://${aws_lb.mcp[0].dns_name}" : (
-    var.stage == "prod" ? "http://${aws_ecs_service.mcp_server[0].id}" : null
+  value = var.enable_alb && var.enable_ecs ? "http://${aws_lb.mcp[0].dns_name}" : (
+    var.enable_ecs ? "http://${aws_ecs_service.mcp_server[0].id}" : null
   )
 }
 
 output "alb_dns_name" {
   description = "ALB DNS name (only when enable_alb=true)."
-  value       = var.enable_alb && var.stage == "prod" ? aws_lb.mcp[0].dns_name : null
+  value       = var.enable_alb ? aws_lb.mcp[0].dns_name : null
 }
 
 output "alb_arn" {
   description = "ALB ARN (only when enable_alb=true)."
-  value       = var.enable_alb && var.stage == "prod" ? aws_lb.mcp[0].arn : null
+  value       = var.enable_alb ? aws_lb.mcp[0].arn : null
 }
 
 output "alb_security_group_id" {
   description = "ALB security group ID (only when enable_alb=true)."
-  value       = var.enable_alb && var.stage == "prod" ? aws_security_group.alb[0].id : null
+  value       = var.enable_alb ? aws_security_group.alb[0].id : null
 }
 
 output "public_subnet_ids" {
@@ -88,27 +88,27 @@ output "aws_endpoint_url" {
 }
 
 output "dashboard_name" {
-  description = "CloudWatch dashboard name (prod only)."
-  value       = var.stage == "prod" ? aws_cloudwatch_dashboard.main[0].dashboard_name : null
+  description = "CloudWatch dashboard name."
+  value       = var.enable_observability ? aws_cloudwatch_dashboard.main[0].dashboard_name : null
 }
 
 output "dashboard_arn" {
-  description = "CloudWatch dashboard ARN (prod only)."
-  value       = var.stage == "prod" ? aws_cloudwatch_dashboard.main[0].dashboard_arn : null
+  description = "CloudWatch dashboard ARN."
+  value       = var.enable_observability ? aws_cloudwatch_dashboard.main[0].dashboard_arn : null
 }
 
 output "sns_topic_arn" {
-  description = "SNS topic ARN for alarm notifications (prod only)."
-  value       = var.stage == "prod" ? aws_sns_topic.alarm_notifications[0].arn : null
+  description = "SNS topic ARN for alarm notifications."
+  value       = var.enable_observability ? aws_sns_topic.alarm_notifications[0].arn : null
 }
 
 output "alarm_arns" {
-  description = "CloudWatch alarm ARNs (prod only)."
-  value = var.stage == "prod" ? {
+  description = "CloudWatch alarm ARNs."
+  value = var.enable_observability ? {
     mcp_tool_errors   = aws_cloudwatch_metric_alarm.mcp_tool_errors[0].arn
     apigw_5xx         = aws_cloudwatch_metric_alarm.apigw_5xx[0].arn
     ecs_cpu           = aws_cloudwatch_metric_alarm.ecs_cpu[0].arn
     ecs_memory        = aws_cloudwatch_metric_alarm.ecs_memory[0].arn
-    alb_healthy_hosts = aws_cloudwatch_metric_alarm.alb_healthy_hosts[0].arn
+    alb_healthy_hosts = var.enable_alb ? aws_cloudwatch_metric_alarm.alb_healthy_hosts[0].arn : null
   } : null
 }

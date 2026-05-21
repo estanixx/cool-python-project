@@ -109,6 +109,24 @@ variable "lambda_handler_names" {
   }
 }
 
+variable "enable_word_trick" {
+  description = "Deploy Word Trick Lambda function and API Gateway integration."
+  type        = bool
+  default     = true
+}
+
+variable "enable_ecs" {
+  description = "Deploy ECS Fargate cluster, service, task definition, ECR repository, and VPC infrastructure."
+  type        = bool
+  default     = true
+}
+
+variable "enable_observability" {
+  description = "Deploy CloudWatch alarms, SNS notifications, dashboard, metric filters, and API GW access logs."
+  type        = bool
+  default     = true
+}
+
 # --- VPC Networking (prod) ---
 
 variable "enable_alb" {
