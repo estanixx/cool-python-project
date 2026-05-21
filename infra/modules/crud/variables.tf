@@ -152,3 +152,31 @@ variable "api_gateway_cors_origins" {
   type        = list(string)
   default     = ["*"]
 }
+
+# --- ECS Auto-Scaling ---
+
+variable "ecs_min_capacity" {
+  description = "Minimum ECS service capacity for autoscaling."
+  type        = number
+  default     = 1
+}
+
+variable "ecs_desired_count" {
+  description = "Desired ECS service task count."
+  type        = number
+  default     = 1
+}
+
+variable "ecs_max_capacity" {
+  description = "Maximum ECS service capacity for autoscaling."
+  type        = number
+  default     = 2
+}
+
+# --- Observability ---
+
+variable "alarm_email" {
+  description = "Email address for CloudWatch alarm notifications via SNS."
+  type        = string
+  default     = "juaneste687@gmail.com"
+}

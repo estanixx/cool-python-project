@@ -432,6 +432,87 @@ def word_trick(sentence: str) -> CallToolResult:
     return _call_api("POST", "/word-trick", {"sentence": sentence})
 
 
+@mcp.tool()
+def stress_test(
+    iterations: int = 10,
+    concurrency: int = 1,
+    delay_ms: int = 100,
+) -> CallToolResult:
+    """Run stress test against production API.
+
+    Loops through: product_list, dictionary_list, shopping_cart_list.
+    Each iteration calls all 3 endpoints and logs results.
+    """
+    import time as _time
+
+    endpoints = [
+        ("GET", "/product", {"operation": "list"}),
+        ("GET", "/dictionary", {"operation": "list"}),
+        ("GET", "/shopping-cart", {"operation": "list"}),
+    ]
+
+    total_calls = 0
+    success_count = 0
+    error_count = 0
+    results: List[Dict[str, Any]] = []
+
+    for i in range(iterations):
+        for method, path, body in endpoints:
+            total_calls += 1
+            try:
+                if IS_PROD:
+                    result = _call_api_prod(method, path, body)
+                else:
+                    result = _call_api_local(method, path, body)
+
+                status = result._meta.get("status_code", 0) if result._meta else 0
+                if status < 400:
+                    success_count += 1
+                else:
+                    error_count += 1
+
+                results.append({
+                    "iteration": i + 1,
+                    "endpoint": f"{method} {path}",
+                    "status": status,
+                })
+            except Exception as exc:
+                error_count += 1
+                results.append({
+                    "iteration": i + 1,
+                    "endpoint": f"{method} {path}",
+                    "status": 0,
+                    "error": str(exc),
+                })
+
+            if delay_ms > 0:
+                _time.sleep(delay_ms / 1000.0)
+
+    summary = {
+        "total_calls": total_calls,
+        "success": success_count,
+        "errors": error_count,
+        "iterations": iterations,
+        "concurrency": concurrency,
+        "delay_ms": delay_ms,
+        "results": results,
+    }
+
+    logger.info(json.dumps({
+        "level": "info",
+        "tool": "stress_test",
+        "total_calls": total_calls,
+        "success": success_count,
+        "errors": error_count,
+    }))
+
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(summary))],
+        structuredContent=summary,
+        _meta={"status_code": 200},
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     from starlette.applications import Starlette

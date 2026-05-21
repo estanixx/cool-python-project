@@ -4,6 +4,8 @@ Full-stack serverless application: Python Lambda API + Next.js frontend + MCP se
 
 ## Architecture
 
+![Architecture Diagram](docs/architecture.png)
+
 ```mermaid
 graph LR
   User -->|Browser| Amplify[Next.js SSR / Amplify]
